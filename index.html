@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>f
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Workout Planner</title>
@@ -82,7 +82,7 @@
     <script type="module">
         // --- CONFIGURATION ---
         const SAVE_URL = `/api/save_workout`;
-        const LIST_ALL_URL = `/api/list_all_workouts`;
+        const LIST_TEMPLATES_URL = `/api/list_templates`;
         const GET_WORKOUT_URL = `/api/get_workout`;
         const GET_EXERCISES_URL = `/api/get_exercises`;
 
@@ -101,7 +101,7 @@
         function initializeAppLogic() {
             loadExercisesFromServer();
             updateButtonState();
-            loadAllPastWorkouts();
+            loadPastWorkoutsForTemplates();
             exerciseFilter.addEventListener('input', filterExercises);
             savePlanButton.addEventListener('click', savePlanToServer);
             importPlanButton.addEventListener('click', handleImport);
@@ -121,14 +121,14 @@
             }
         }
 
-        async function loadAllPastWorkouts() {
+        async function loadPastWorkoutsForTemplates() {
             try {
-                const response = await fetch(LIST_ALL_URL);
-                if (!response.ok) throw new Error('Could not fetch workout list');
+                const response = await fetch(LIST_TEMPLATES_URL);
+                if (!response.ok) throw new Error('Could not fetch template list');
                 const data = await response.json();
-                if (data.status === 'success' && data.workouts.length > 0) {
+                if (data.status === 'success' && data.templates.length > 0) {
                     importSelector.innerHTML = '<option value="">-- Load Past Workout as Template --</option>';
-                    data.workouts.forEach(workout => {
+                    data.templates.forEach(workout => {
                         const option = document.createElement('option');
                         option.value = JSON.stringify(workout);
                         option.textContent = workout.filename;
@@ -139,7 +139,7 @@
                 }
             } catch (error) {
                 console.error("Failed to load past workouts:", error);
-                importSelector.innerHTML = '<option value="">-- Error loading workouts --</option>';
+                importSelector.innerHTML = '<option value="">-- Error loading templates --</option>';
             }
         }
 
@@ -168,14 +168,17 @@
             emptyState.style.display = 'none';
             const rows = csvText.trim().split('\n');
             const header = rows.shift().toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
+            
+            // Handle both plan and tracked file formats
             const idx = {
                 exercise: header.indexOf('exercise'),
                 sets: header.indexOf('sets'),
                 targetReps: header.indexOf('target reps'),
                 weight: header.indexOf('weight (kg)') !== -1 ? header.indexOf('weight (kg)') : header.indexOf('target weight (kg)'),
                 superset: header.indexOf('superset group'),
-                notes: header.indexOf('coach\'s notes') // NEW: Find notes column
+                notes: header.indexOf("coach's notes")
             };
+
             const exercisesToPlan = new Map();
             rows.forEach(row => {
                 const values = row.split(',').map(v => v.trim().replace(/"/g, ''));
@@ -187,7 +190,7 @@
                         targetReps: values[idx.targetReps] || '',
                         weight: values[idx.weight] || '',
                         supersetGroup: values[idx.superset] || 'None',
-                        notes: idx.notes !== -1 ? values[idx.notes] : '' // NEW: Get notes if column exists
+                        notes: idx.notes !== -1 ? values[idx.notes] : ''
                     });
                 }
             });
@@ -281,7 +284,6 @@
             
             let csvContent = "Exercise,Sets,Target Reps,Weight (kg),Superset Group,Coach's Notes\r\n";
             workoutData.forEach(item => {
-                // Ensure notes with commas are quoted
                 const notes = `"${item.notes.replace(/"/g, '""')}"`;
                 csvContent += `"${item.name}",${item.sets},"${item.targetReps}",${item.weight},${item.supersetGroup},${notes}\r\n`;
             });
