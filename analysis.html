@@ -23,12 +23,13 @@
 
         <div class="flex flex-col sm:flex-row justify-center items-center gap-4 p-4 bg-white rounded-xl shadow-md border mb-8">
             <select id="user-selector" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
+                <option value="">-- Select a User --</option>
                 <option value="All">All Users</option>
                 <option value="Zak">Zak</option>
                 <option value="Kate">Kate</option>
             </select>
-            <select id="exercise-selector" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
-                <option value="">-- Loading Analysis Data --</option>
+            <select id="exercise-selector" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto" disabled>
+                <option value="">-- Select a User First --</option>
             </select>
             <p id="statusMessage" class="text-sm font-medium h-5 flex-grow text-center sm:text-left"></p>
         </div>
@@ -47,14 +48,13 @@
         </main>
         
         <div id="empty-state" class="text-center py-16 text-gray-500 bg-white rounded-xl shadow-lg border">
-             <p class="text-lg font-semibold">Loading data from server...</p>
+             <p class="text-lg font-semibold">Please select a user to view their progress.</p>
         </div>
 
     </div>
 
     <script type="module">
         // --- CONFIGURATION ---
-        const RASPBERRY_PI_IP = "192.168.1.150";
         const ANALYSIS_URL = `/api/get_analysis`;
 
         // --- DOM ELEMENTS ---
@@ -72,10 +72,7 @@
 
         // --- EVENT LISTENERS ---
         window.addEventListener('load', loadAnalysisData);
-        userSelector.addEventListener('change', () => {
-            populateExerciseSelector();
-            updateCharts();
-        });
+        userSelector.addEventListener('change', handleUserSelection);
         exerciseSelector.addEventListener('change', updateCharts);
 
         async function loadAnalysisData() {
@@ -87,27 +84,34 @@
 
                 if (data.status === 'success' && Object.keys(data.analysis).length > 0) {
                     analysisData = data.analysis;
-                    populateExerciseSelector();
-                    updateCharts();
-                    chartsContainer.classList.remove('hidden');
-                    emptyState.classList.add('hidden');
-                    showStatus('Analysis loaded.', 'green');
+                    showStatus('Analysis data loaded. Please select a user.', 'green');
                 } else {
                     emptyState.innerHTML = `<p class="text-lg font-semibold">No analysis data found.</p><p class="text-sm">Complete some workouts with the tracker app first.</p>`;
-                    exerciseSelector.innerHTML = '<option value="">-- No Data --</option>';
                     showStatus('No data available for analysis.', 'orange');
                 }
             } catch (error) {
                 console.error('Failed to load analysis:', error);
                 emptyState.innerHTML = `<p class="text-lg font-semibold">Error loading data.</p><p class="text-sm">Could not connect to the server. Is it running?</p>`;
-                exerciseSelector.innerHTML = '<option value="">-- Error --</option>';
                 showStatus('Error connecting to server.', 'red');
             }
+        }
+
+        function handleUserSelection() {
+            const selectedUser = userSelector.value;
+            if (!selectedUser) {
+                exerciseSelector.innerHTML = '<option value="">-- Select a User First --</option>';
+                exerciseSelector.disabled = true;
+                chartsContainer.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            populateExerciseSelector();
+            updateCharts();
         }
         
         function populateExerciseSelector() {
             const selectedUser = userSelector.value;
-            const allExercises = Object.keys(analysisData);
+            const allExercises = Object.keys(analysisData).sort();
             
             let userExercises = new Set();
             if (selectedUser === 'All') {
@@ -120,8 +124,8 @@
                 });
             }
 
-            const sortedUserExercises = Array.from(userExercises).sort();
-            exerciseSelector.innerHTML = '';
+            const sortedUserExercises = Array.from(userExercises);
+            exerciseSelector.innerHTML = ''; // Clear previous options
             if (sortedUserExercises.length > 0) {
                 sortedUserExercises.forEach(ex => {
                     const option = document.createElement('option');
@@ -129,8 +133,10 @@
                     option.textContent = ex;
                     exerciseSelector.appendChild(option);
                 });
+                exerciseSelector.disabled = false;
             } else {
                 exerciseSelector.innerHTML = '<option value="">-- No exercises for this user --</option>';
+                exerciseSelector.disabled = true;
             }
         }
 
@@ -138,39 +144,33 @@
             const selectedUser = userSelector.value;
             const selectedExercise = exerciseSelector.value;
             
+            if (weightChart) weightChart.destroy();
+            if (volumeChart) volumeChart.destroy();
+
             if (!selectedExercise || !analysisData[selectedExercise]) {
-                if (weightChart) weightChart.destroy();
-                if (volumeChart) volumeChart.destroy();
                 chartsContainer.classList.add('hidden');
+                emptyState.classList.remove('hidden');
                 return;
             }
 
             chartsContainer.classList.remove('hidden');
+            emptyState.classList.add('hidden');
             const fullExerciseData = analysisData[selectedExercise];
-            let filteredData = { ...fullExerciseData, labels: [], dates: [], users: [], max_weight: [], total_volume: [] };
+            
+            const filteredData = { labels: [], dates: [], max_weight: [], total_volume: [] };
 
-            // Filter data based on selected user
-            if (selectedUser === 'All') {
-                filteredData = fullExerciseData;
-            } else {
-                for (let i = 0; i < fullExerciseData.users.length; i++) {
-                    if (fullExerciseData.users[i] === selectedUser) {
-                        filteredData.labels.push(fullExerciseData.labels[i]);
-                        filteredData.dates.push(fullExerciseData.dates[i]);
-                        filteredData.users.push(fullExerciseData.users[i]);
-                        filteredData.max_weight.push(fullExerciseData.max_weight[i]);
-                        filteredData.total_volume.push(fullExerciseData.total_volume[i]);
-                    }
+            for (let i = 0; i < fullExerciseData.labels.length; i++) {
+                if (selectedUser === 'All' || fullExerciseData.users[i] === selectedUser) {
+                    filteredData.labels.push(fullExerciseData.labels[i]);
+                    filteredData.dates.push(fullExerciseData.dates[i]);
+                    filteredData.max_weight.push(parseFloat(fullExerciseData.max_weight[i]) || 0);
+                    filteredData.total_volume.push(parseFloat(fullExerciseData.total_volume[i]) || 0);
                 }
             }
 
             // Update chart titles
             maxWeightTitle.textContent = `Max Weight Lifted for ${selectedExercise}`;
             totalVolumeTitle.textContent = `Total Volume for ${selectedExercise}`;
-
-            // Destroy old charts if they exist
-            if (weightChart) weightChart.destroy();
-            if (volumeChart) volumeChart.destroy();
 
             // Create Max Weight Chart
             const weightCtx = document.getElementById('max-weight-chart').getContext('2d');
