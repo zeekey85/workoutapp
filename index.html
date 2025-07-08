@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>f
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workout Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .new-item-animation { animation: fadeIn 0.3s ease-out; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">Workout Planner</h1>
+            <p class="text-gray-600 mt-2">Build your workout and save it directly to your server.</p>
+            <a href="Workout.html" class="text-blue-600 hover:underline">Go to Tracker</a>
+            <a href="analysis.html" class="text-blue-600 hover:underline ml-4">Go to Analysis</a>
+        </header>
+
+        <div id="statusContainer" class="text-center mb-6">
+             <p id="statusMessage" class="text-sm font-medium mt-1 h-5"></p>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-8">
+            <aside class="w-full lg:w-1/3 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                <h2 class="text-2xl font-semibold mb-4">Available Exercises</h2>
+                <input type="text" id="exerciseFilter" placeholder="Filter exercises..." class="w-full p-3 mb-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <div id="exercise-list" class="space-y-2 max-h-96 overflow-y-auto custom-scrollbar pr-2"></div>
+            </aside>
+
+            <main class="w-full lg:w-2/3 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                <h2 class="text-2xl font-semibold mb-4">Today's Workout Plan</h2>
+                <div id="workout-plan" class="space-y-4">
+                    <div id="empty-state" class="text-center py-12 text-gray-500">
+                        <p>Your workout plan is empty.</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <div class="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
+            <select id="user-selector" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
+                <option value="">-- Select User --</option>
+                <option value="Zak">Zak</option>
+                <option value="Kate">Kate</option>
+            </select> 
+            <select id="workout-type-select" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
+                <option value="">-- Select Workout Type --</option>
+                <option value="Upper-Heavy A">Upper Heavy A</option>
+                <option value="Upper-Volume A">Upper Volume A</option>
+                <option value="Lower-Heavy A">Lower Heavy A</option>
+                <option value="Lower-Volume A">Lower Volume A</option>
+                <option value="Upper-Heavy B">Upper Heavy B</option>
+                <option value="Upper-Volume B">Upper Volume B</option>
+                <option value="Lower-Heavy B">Lower Heavy B</option>
+                <option value="Lower-Volume B">Lower Volume B</option>
+            </select>
+            <button id="save-plan-button" class="px-8 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-green-300 disabled:cursor-not-allowed w-full sm:w-auto">
+                Save Plan to Server
+            </button>
+        </div>
+
+        <div class="mt-6 border-t pt-6 flex flex-col sm:flex-row justify-center items-center gap-4">
+            <select id="import-selector" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-full sm:w-auto">
+                <option value="">-- Load Past Workout as Template --</option>
+            </select>
+            <button id="import-plan-button" class="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 w-full sm:w-auto">
+                Import Selected
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- CONFIGURATION ---
+        const SAVE_URL = `/api/save_workout`;
+        const LIST_ALL_URL = `/api/list_all_workouts`;
+        const GET_WORKOUT_URL = `/api/get_workout`;
+        const GET_EXERCISES_URL = `/api/get_exercises`;
+
+        // --- DOM ELEMENTS ---
+        const exerciseListContainer = document.getElementById('exercise-list');
+        const exerciseFilter = document.getElementById('exerciseFilter');
+        const workoutPlanContainer = document.getElementById('workout-plan');
+        const emptyState = document.getElementById('empty-state');
+        const workoutTypeSelect = document.getElementById('workout-type-select');
+        const savePlanButton = document.getElementById('save-plan-button');
+        const statusMessage = document.getElementById('statusMessage');
+        const userSelector = document.getElementById('user-selector');
+        const importSelector = document.getElementById('import-selector');
+        const importPlanButton = document.getElementById('import-plan-button');
+
+        function initializeAppLogic() {
+            loadExercisesFromServer();
+            updateButtonState();
+            loadAllPastWorkouts();
+            exerciseFilter.addEventListener('input', filterExercises);
+            savePlanButton.addEventListener('click', savePlanToServer);
+            importPlanButton.addEventListener('click', handleImport);
+        }
+
+        async function loadExercisesFromServer() {
+            try {
+                const response = await fetch(GET_EXERCISES_URL);
+                if (!response.ok) throw new Error('Could not fetch exercises');
+                const data = await response.json();
+                if (data.status === 'success') {
+                    populateExerciseList(data.exercises);
+                }
+            } catch (error) {
+                console.error("Failed to load exercises:", error);
+                showStatus("Error loading exercise list from server.", "red");
+            }
+        }
+
+        async function loadAllPastWorkouts() {
+            try {
+                const response = await fetch(LIST_ALL_URL);
+                if (!response.ok) throw new Error('Could not fetch workout list');
+                const data = await response.json();
+                if (data.status === 'success' && data.workouts.length > 0) {
+                    importSelector.innerHTML = '<option value="">-- Load Past Workout as Template --</option>';
+                    data.workouts.forEach(workout => {
+                        const option = document.createElement('option');
+                        option.value = JSON.stringify(workout);
+                        option.textContent = workout.filename;
+                        importSelector.appendChild(option);
+                    });
+                } else {
+                    importSelector.innerHTML = '<option value="">-- No past workouts found --</option>';
+                }
+            } catch (error) {
+                console.error("Failed to load past workouts:", error);
+                importSelector.innerHTML = '<option value="">-- Error loading workouts --</option>';
+            }
+        }
+
+        async function handleImport() {
+            const selectedValue = importSelector.value;
+            if (!selectedValue) {
+                showStatus("Please select a workout to import.", "orange");
+                return;
+            }
+            const { filename, type } = JSON.parse(selectedValue);
+            showStatus(`Importing ${filename}...`, 'blue');
+            try {
+                const response = await fetch(`${GET_WORKOUT_URL}?filename=${filename}&type=${type}`);
+                if (!response.ok) throw new Error('Could not fetch workout file');
+                const csvText = await response.text();
+                parseAndPopulate(csvText);
+                showStatus(`Successfully imported ${filename}.`, 'green');
+            } catch (error) {
+                console.error("Import failed:", error);
+                showStatus("Error: Could not import the selected workout.", "red");
+            }
+        }
+
+        function parseAndPopulate(csvText) {
+            workoutPlanContainer.innerHTML = '';
+            emptyState.style.display = 'none';
+            const rows = csvText.trim().split('\n');
+            const header = rows.shift().toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
+            const idx = {
+                exercise: header.indexOf('exercise'),
+                sets: header.indexOf('sets'),
+                targetReps: header.indexOf('target reps'),
+                weight: header.indexOf('weight (kg)') !== -1 ? header.indexOf('weight (kg)') : header.indexOf('target weight (kg)'),
+                superset: header.indexOf('superset group'),
+                notes: header.indexOf('coach\'s notes') // NEW: Find notes column
+            };
+            const exercisesToPlan = new Map();
+            rows.forEach(row => {
+                const values = row.split(',').map(v => v.trim().replace(/"/g, ''));
+                const exerciseName = values[idx.exercise];
+                if (!exercisesToPlan.has(exerciseName)) {
+                     exercisesToPlan.set(exerciseName, {
+                        name: exerciseName,
+                        sets: values[idx.sets],
+                        targetReps: values[idx.targetReps] || '',
+                        weight: values[idx.weight] || '',
+                        supersetGroup: values[idx.superset] || 'None',
+                        notes: idx.notes !== -1 ? values[idx.notes] : '' // NEW: Get notes if column exists
+                    });
+                }
+            });
+            exercisesToPlan.forEach(exerciseData => {
+                addExerciseToPlan(exerciseData);
+            });
+        }
+
+        function populateExerciseList(exercises) {
+            exerciseListContainer.innerHTML = '';
+            exercises.sort().forEach(name => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition';
+                div.dataset.name = name;
+                div.innerHTML = `<span class="font-medium">${name}</span><button class="px-3 py-1 bg-blue-500 text-white text-sm font-semibold rounded-md hover:bg-blue-600">Add</button>`;
+                div.querySelector('button').onclick = () => addExerciseToPlan({ name });
+                exerciseListContainer.appendChild(div);
+            });
+        }
+
+        function filterExercises() {
+            const filterText = exerciseFilter.value.toLowerCase();
+            exerciseListContainer.querySelectorAll('div[data-name]').forEach(div => {
+                div.style.display = div.dataset.name.toLowerCase().includes(filterText) ? 'flex' : 'none';
+            });
+        }
+
+        function addExerciseToPlan(exerciseData) {
+            const { name, sets = '', targetReps = '', weight = '', supersetGroup = 'None', notes = '' } = exerciseData;
+            emptyState.style.display = 'none';
+            const safeName = name.replace(/[^a-zA-Z0-9]/g, '');
+            const exerciseContainer = document.createElement('div');
+            exerciseContainer.className = 'p-4 border border-gray-200 rounded-lg new-item-animation';
+            exerciseContainer.dataset.exerciseName = name;
+            exerciseContainer.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                    <span class="font-semibold sm:col-span-3">${name}</span>
+                    <div class="sm:col-span-1"><label class="block text-sm font-medium text-gray-500">Sets</label><input type="number" placeholder="3" class="w-full p-2 border rounded-md" value="${sets}"></div>
+                    <div class="sm:col-span-2"><label class="block text-sm font-medium text-gray-500">Target Reps</label><input type="text" placeholder="8-10" class="w-full p-2 border rounded-md" value="${targetReps}"></div>
+                    <div class="sm:col-span-2"><label class="block text-sm font-medium text-gray-500">Weight (kg)</label><input type="number" placeholder="50" class="w-full p-2 border rounded-md" value="${weight}"></div>
+                    <div class="flex items-center justify-start sm:col-span-3"><label class="text-sm font-medium text-gray-700 mr-3">Superset:</label><div class="flex items-center gap-x-3">
+                        <div class="flex items-center"><input type="radio" id="superset-A-${safeName}" name="superset-group-${safeName}" value="A" ${supersetGroup === 'A' ? 'checked' : ''} class="h-4 w-4 text-blue-600"><label for="superset-A-${safeName}" class="ml-1 text-sm">A</label></div>
+                        <div class="flex items-center"><input type="radio" id="superset-B-${safeName}" name="superset-group-${safeName}" value="B" ${supersetGroup === 'B' ? 'checked' : ''} class="h-4 w-4 text-blue-600"><label for="superset-B-${safeName}" class="ml-1 text-sm">B</label></div>
+                        <div class="flex items-center"><input type="radio" id="superset-none-${safeName}" name="superset-group-${safeName}" value="None" ${supersetGroup === 'None' ? 'checked' : ''} class="h-4 w-4 text-gray-600"><label for="superset-none-${safeName}" class="ml-1 text-sm">None</label></div>
+                    </div></div>
+                    <div class="sm:col-span-1 text-right"><button class="remove-btn px-3 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600">Remove</button></div>
+                </div>
+                <div class="mt-2">
+                    <label class="block text-sm font-medium text-gray-500">Coach's Notes</label>
+                    <textarea class="w-full p-2 border rounded-md coach-notes" rows="2" placeholder="e.g., Focus on explosive concentric...">${notes}</textarea>
+                </div>
+            `;
+            
+            workoutPlanContainer.appendChild(exerciseContainer);
+            exerciseContainer.querySelector('.remove-btn').addEventListener('click', () => {
+                exerciseContainer.remove();
+                updateButtonState();
+                if (workoutPlanContainer.querySelectorAll('[data-exercise-name]').length === 0) {
+                    emptyState.style.display = 'block';
+                }
+            });
+            updateButtonState();
+        }
+
+        function getWorkoutData() {
+            const workoutData = [];
+            workoutPlanContainer.querySelectorAll('[data-exercise-name]').forEach(container => {
+                const inputs = container.querySelectorAll('input');
+                workoutData.push({
+                    name: container.dataset.exerciseName,
+                    sets: inputs[0].value || '0',
+                    targetReps: inputs[1].value || '0',
+                    weight: inputs[2].value || '0',
+                    supersetGroup: container.querySelector('input[type="radio"]:checked').value,
+                    notes: container.querySelector('.coach-notes').value || ''
+                });
+            });
+            return workoutData;
+        }
+
+        async function savePlanToServer() {
+            const userName = userSelector.value;
+            const workoutType = workoutTypeSelect.value;
+            if (!userName) { showStatus("Please select a user.", 'orange'); return; }
+            if (!workoutType) { showStatus("Please select a workout type.", 'orange'); return; }
+            const workoutData = getWorkoutData();
+            if (workoutData.length === 0) { showStatus("Cannot save an empty plan.", 'orange'); return; }
+
+            const dateString = new Date().toISOString().split('T')[0];
+            const filename = `${userName}_${workoutType}_${dateString}.csv`;
+            
+            let csvContent = "Exercise,Sets,Target Reps,Weight (kg),Superset Group,Coach's Notes\r\n";
+            workoutData.forEach(item => {
+                // Ensure notes with commas are quoted
+                const notes = `"${item.notes.replace(/"/g, '""')}"`;
+                csvContent += `"${item.name}",${item.sets},"${item.targetReps}",${item.weight},${item.supersetGroup},${notes}\r\n`;
+            });
+
+            const payload = { filename: filename, csv_content: csvContent, type: 'plan' };
+            showStatus('Saving plan to server...', 'blue');
+            savePlanButton.disabled = true;
+            try {
+                const response = await fetch(SAVE_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                showStatus(response.ok ? `Success: ${result.message}` : `Error: ${result.message}`, response.ok ? 'green' : 'red');
+            } catch (error) {
+                console.error('Network or fetch error:', error);
+                showStatus('Error: Could not connect to server.', 'red');
+            } finally {
+                savePlanButton.disabled = false;
+            }
+        }
+
+        function updateButtonState() {
+            savePlanButton.disabled = workoutPlanContainer.querySelectorAll('[data-exercise-name]').length === 0;
+        }
+
+        function showStatus(message, color) {
+            statusMessage.textContent = message;
+            statusMessage.className = `text-sm font-medium mt-1 h-5 text-${color}-600`;
+            setTimeout(() => { if (statusMessage.textContent === message) statusMessage.textContent = ''; }, 4000);
+        }
+
+        initializeAppLogic();
+    </script>
+</body>
+</html>

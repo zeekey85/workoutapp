@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workout Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .table-cell-input { width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: #f9fafb; }
+        .table-cell-input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in-animation { animation: fadeIn 0.5s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">Workout Tracker</h1>
+            <p class="text-gray-600 mt-2">Load a plan from your server and track your workout.</p>
+            <a href="index.html" class="text-blue-600 hover:underline">Go to Planner</a>
+            <a href="analysis.html" class="text-blue-600 hover:underline ml-4">Go to Analysis</a>
+        </header>
+
+        <div class="flex flex-col sm:flex-row justify-center items-center gap-4 p-4 bg-white rounded-xl shadow-md border mb-8">
+            <select id="user-filter-select" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
+                <option value="">-- Select User --</option>
+                <option value="Zak">Zak</option>
+                <option value="Kate">Kate</option>
+            </select>
+            <button id="filter-plans-button" class="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 w-full sm:w-auto">Load User's Plans</button>
+            <select id="plan-selector" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
+                <option value="">-- Select a User First --</option>
+            </select>
+            <button id="load-plan-button" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full sm:w-auto">
+                Load Selected Plan
+            </button>
+            <button id="save-to-server-button" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 w-full sm:w-auto hidden">
+                Save Tracked Workout
+            </button>
+        </div>
+        <div class="text-center"><p id="statusMessage" class="text-sm font-medium h-5"></p></div>
+
+        <main id="workout-tracker-container" class="space-y-6 mt-6">
+            <div id="empty-state" class="text-center py-16 text-gray-500 bg-white rounded-xl shadow-lg border">
+                <p class="text-lg font-semibold">No workout loaded.</p>
+                <p class="text-sm">Select a user and plan from the dropdowns and click "Load".</p>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        // --- CONFIGURATION ---
+        const LIST_PLANS_URL = `/api/list_plans`;
+        const GET_PLAN_URL = `/api/get_plan`;
+        const SAVE_WORKOUT_URL = `/api/save_workout`;
+
+        // --- DOM ELEMENTS ---
+        const userFilterSelect = document.getElementById('user-filter-select');
+        const filterPlansButton = document.getElementById('filter-plans-button');
+        const planSelector = document.getElementById('plan-selector');
+        const loadPlanButton = document.getElementById('load-plan-button');
+        const saveToServerButton = document.getElementById('save-to-server-button');
+        const statusMessage = document.getElementById('statusMessage');
+        const trackerContainer = document.getElementById('workout-tracker-container');
+        const emptyState = document.getElementById('empty-state');
+        let originalFilename = 'tracked_workout.csv';
+        let allServerPlans = [];
+
+        // --- EVENT LISTENERS ---
+        window.addEventListener('load', loadPlanListFromServer);
+        filterPlansButton.addEventListener('click', filterPlanList);
+        loadPlanButton.addEventListener('click', handleLoadPlan);
+        saveToServerButton.addEventListener('click', saveWorkoutToServer);
+
+        async function loadPlanListFromServer() {
+            showStatus('Loading plans from server...', 'blue');
+            try {
+                const response = await fetch(LIST_PLANS_URL);
+                if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
+                const data = await response.json();
+                if (data.status === 'success') {
+                    allServerPlans = data.plans;
+                    showStatus('Ready. Select a user to see their plans.', 'green');
+                } else {
+                    showStatus('No workout plans found on the server.', 'orange');
+                }
+            } catch (error) {
+                console.error('Failed to load plan list:', error);
+                showStatus('Error: Could not connect to server to load plans.', 'red');
+            }
+        }
+        
+        function filterPlanList() {
+            const userName = userFilterSelect.value;
+            if (!userName) { showStatus('Please select a user to find their plans.', 'orange'); return; }
+            const userPlans = allServerPlans.filter(plan => plan.toLowerCase().startsWith(userName.toLowerCase() + '_'));
+            if (userPlans.length > 0) {
+                planSelector.innerHTML = '<option value="">-- Select a Workout Plan --</option>';
+                userPlans.forEach(planFile => {
+                    const option = document.createElement('option');
+                    option.value = planFile;
+                    option.textContent = planFile;
+                    planSelector.appendChild(option);
+                });
+                showStatus(`Found ${userPlans.length} plan(s) for ${userName}.`, 'green');
+            } else {
+                planSelector.innerHTML = '<option value="">-- No plans found for this user --</option>';
+                showStatus(`No plans found for ${userName}.`, 'orange');
+            }
+        }
+
+        async function handleLoadPlan() {
+            const selectedPlan = planSelector.value;
+            if (!selectedPlan) { showStatus('Please select a plan to load.', 'orange'); return; }
+            showStatus(`Loading ${selectedPlan}...`, 'blue');
+            try {
+                const response = await fetch(`${GET_PLAN_URL}/${selectedPlan}`);
+                if (!response.ok) throw new Error(`Could not fetch plan. Status: ${response.status}`);
+                const csvText = await response.text();
+                
+                // --- NEW FILENAME LOGIC ---
+                // 1. Get the base name by removing the old date and .csv extension
+                const baseName = selectedPlan.replace(/_\d{4}-\d{2}-\d{2}\.csv$/, '');
+                // 2. Get today's date
+                const today = new Date().toISOString().split('T')[0];
+                // 3. Create the new filename with the current date
+                originalFilename = `${baseName}_${today}_tracked.csv`;
+
+                const workoutPlan = parseWorkoutCSV(csvText);
+                if (workoutPlan) {
+                    const trackingData = workoutPlan.map(ex => ({
+                        ...ex,
+                        setsData: Array.from({ length: ex.sets }, () => ({ reps: '', actualWeight: '', notes: '', rir: '' }))
+                    }));
+                    displayWorkoutTracker(trackingData);
+                    showStatus(`Loaded ${selectedPlan}. Ready to track!`, 'green');
+                }
+            } catch (error) {
+                console.error('Failed to load plan content:', error);
+                showStatus('Error loading the selected workout plan.', 'red');
+            }
+        }
+
+        function parseWorkoutCSV(csvText) {
+            const rows = csvText.trim().split('\n');
+            if (rows.length < 2) { showStatus("Error: CSV is empty or invalid.", 'red'); return null; }
+            const header = rows.shift().trim().toLowerCase().split(',').map(h => h.replace(/"/g, ''));
+            const expectedHeader = ["exercise", "sets", "target reps", "weight (kg)", "superset group", "coach's notes"];
+            if (JSON.stringify(header) !== JSON.stringify(expectedHeader)) {
+                showStatus("Error: Invalid CSV header.", 'red');
+                console.error("Expected header:", expectedHeader, "Got:", header);
+                return null;
+            }
+            return rows.map(row => {
+                const values = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g).map(v => v.replace(/"/g, ''));
+                return { 
+                    name: values[0], 
+                    sets: parseInt(values[1], 10), 
+                    targetReps: values[2],
+                    weight: parseFloat(values[3]), 
+                    supersetGroup: values[4],
+                    notes: values[5] || ''
+                };
+            });
+        }
+
+        function displayWorkoutTracker(trackingData) {
+            emptyState.style.display = 'none';
+            trackerContainer.innerHTML = '';
+            trackingData.forEach((exercise, exerciseIndex) => {
+                const exerciseElement = document.createElement('div');
+                let bgColorClass = 'bg-white';
+                if (exercise.supersetGroup === 'A') bgColorClass = 'bg-blue-50';
+                if (exercise.supersetGroup === 'B') bgColorClass = 'bg-yellow-50';
+                exerciseElement.className = `exercise-container ${bgColorClass} p-4 sm:p-6 rounded-xl shadow-lg border fade-in-animation`;
+                
+                let coachNotesHTML = exercise.notes ? `<blockquote class="mt-2 mb-4 p-3 border-l-4 border-purple-300 bg-purple-50 text-purple-800">${exercise.notes}</blockquote>` : '';
+
+                let tableHTML = `
+                    <div class="flex justify-between items-baseline mb-2">
+                        <h3 class="text-xl sm:text-2xl font-bold">${exercise.name}</h3>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-600">Target: <span class="font-semibold">${exercise.setsData.length} sets @ ${exercise.weight} kg</span></p>
+                            ${exercise.supersetGroup !== 'None' ? `<p class="text-sm font-bold text-indigo-600">Superset ${exercise.supersetGroup}</p>` : ''}
+                        </div>
+                    </div>
+                    ${coachNotesHTML}
+                    <table class="w-full text-left">
+                        <thead><tr class="border-b"><th class="p-2 w-1/12">Set</th><th class="p-2 w-3/12">Actual Reps</th><th class="p-2 w-3/12">Actual Weight (kg)</th><th class="p-2 w-4/12">Notes</th><th class="p-2 w-1/12">RIR</th></tr></thead>
+                        <tbody>`;
+                
+                exercise.setsData.forEach((setData, setIndex) => {
+                    tableHTML += `<tr class="border-b border-gray-200" data-exercise-index="${exerciseIndex}" data-set-index="${setIndex}"><td class="p-2 font-semibold">Set ${setIndex + 1}</td><td class="p-2"><span class="text-xs text-gray-500 block">Goal: ${exercise.targetReps}</span><input type="number" class="table-cell-input reps-input" placeholder="Reps" value="${setData.reps || ''}"></td><td class="p-2"><span class="text-xs text-gray-500 block">Goal: ${exercise.weight} kg</span><input type="number" class="table-cell-input weight-input" placeholder="Weight" value="${setData.actualWeight || ''}"></td><td class="p-2"><input type="text" class="table-cell-input notes-input" placeholder="e.g., good form" value="${setData.notes || ''}"></td><td class="p-2"><input type="number" class="table-cell-input rir-input" placeholder="RIR" value="${setData.rir || ''}"></td></tr>`;
+                });
+                tableHTML += `</tbody></table>`;
+                exerciseElement.innerHTML = tableHTML;
+                trackerContainer.appendChild(exerciseElement);
+            });
+            saveToServerButton.classList.remove('hidden');
+        }
+
+        async function saveWorkoutToServer() {
+            const trackingData = readDataFromUI();
+            if (trackingData.length === 0) { showStatus('Nothing to save.', 'orange'); return; }
+            let csvContent = "Exercise,Target Reps,Target Weight (kg),Superset Group,Coach's Notes,Set,Actual Reps,Actual Weight (kg),Notes,Reps in Reserve (RIR)\r\n";
+            trackingData.forEach(exercise => {
+                const coachNotes = `"${exercise.notes.replace(/"/g, '""')}"`;
+                exercise.setsData.forEach((setData, index) => {
+                    const userNotes = `"${setData.notes.replace(/"/g, '""')}"`;
+                    csvContent += [`"${exercise.name}"`, `"${exercise.targetReps}"`, exercise.weight, exercise.supersetGroup, coachNotes, index + 1, setData.reps, setData.actualWeight, userNotes, setData.rir].join(',') + '\r\n';
+                });
+            });
+            const payload = { filename: originalFilename, csv_content: csvContent, type: 'tracked' };
+            showStatus('Saving to server...', 'blue');
+            saveToServerButton.disabled = true;
+            try {
+                const response = await fetch(SAVE_WORKOUT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const result = await response.json();
+                showStatus(response.ok ? `Success: ${result.message}` : `Error: ${result.message}`, response.ok ? 'green' : 'red');
+            } catch (error) {
+                showStatus('Error: Could not connect to server.', 'red');
+            } finally {
+                saveToServerButton.disabled = false;
+            }
+        }
+        
+        function readDataFromUI() {
+            const data = [];
+            trackerContainer.querySelectorAll('.exercise-container').forEach((container) => {
+                const coachNotesEl = container.querySelector('blockquote');
+                const goalRepsText = container.querySelector('.reps-input').previousElementSibling.textContent;
+                const targetReps = goalRepsText.replace('Goal: ', '');
+                const exerciseData = {
+                    name: container.querySelector('h3').textContent,
+                    targetReps: targetReps,
+                    weight: parseFloat(container.querySelector('p.text-sm.text-gray-600').textContent.match(/@ ([\d.]+) kg/)[1]),
+                    supersetGroup: container.querySelector('p.text-indigo-600') ? container.querySelector('p.text-indigo-600').textContent.replace('Superset ', '') : 'None',
+                    notes: coachNotesEl ? coachNotesEl.textContent : '',
+                    setsData: []
+                };
+                container.querySelectorAll('tbody tr').forEach(row => {
+                    exerciseData.setsData.push({
+                        reps: row.querySelector('.reps-input').value,
+                        actualWeight: row.querySelector('.weight-input').value,
+                        notes: row.querySelector('.notes-input').value,
+                        rir: row.querySelector('.rir-input').value
+                    });
+                });
+                data.push(exerciseData);
+            });
+            return data;
+        }
+
+        function showStatus(message, color) {
+            statusMessage.textContent = message;
+            statusMessage.className = `text-sm font-medium h-5 text-${color}-600`;
+            if (color !== 'blue') {
+                setTimeout(() => { if (statusMessage.textContent === message) statusMessage.textContent = ''; }, 4000);
+            }
+        }
+    </script>
+</body>
+</html>
