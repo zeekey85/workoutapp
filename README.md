@@ -10,8 +10,6 @@ Welcome to Data-Driven Strength, a lightweight, self-hosted web application for 
 
 The application is built around a simple, robust data workflow, ensuring your progress is tracked accurately and never lost.
 
-![Data-Driven Strength Logo](https://i.imgur.com/2V3tW2C.png)
-
 ## Core Philosophy
 
 As a scientist, I wanted a tool that treats strength training as a series of experiments. Every workout is a data-gathering session. This application allows you to:
