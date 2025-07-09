@@ -4,6 +4,96 @@ This is a 100% vibe-coded workout app intended to be used on my home network. It
 
 Here is the AI Readme Output: 
 
+Data-Driven Strength: Planner & Tracker
+Welcome to Data-Driven Strength, a lightweight, self-hosted web application for creating, tracking, and analyzing workout routines. It's designed for individuals who want a straightforward, scientific approach to managing their training, with a focus on data ownership and clarity.
+The application is built around a simple, robust data workflow, ensuring your progress is tracked accurately and never lost.
+Core Philosophy
+As a scientist, I wanted a tool that treats strength training as a series of experiments. Every workout is a data-gathering session. This application allows you to:
+	•	Plan: Formulate your hypothesis (the workout plan).
+	•	Execute & Track: Gather data during your session with robust auto-saving.
+	•	Analyze: Review the results and visualize your progress over time to inform your next training cycle.
+Features
+	•	Intuitive Interface: Clean and simple UI built with Tailwind CSS.
+	•	Robust Data Workflow: A clear, multi-stage process for planning, tracking, and archiving workouts.
+	•	Live Auto-Saving: The tracker automatically saves your progress after every input, preventing data loss from page reloads or crashes.
+	•	Resume Workouts: Easily pick up an in-progress workout right where you left off.
+	•	Progress Visualization: Automatically generated charts to track your strength (max weight) and volume progression.
+	•	User-Specific Plans: Create and load plans for different users (e.g., "Zak", "Kate").
+	•	Template-based Planning: Import a finished workout or an archived plan to use as a template for a new one.
+	•	Local Data Storage: All your workout data stays with you, stored in simple, transparent .csv files.
+Tech Stack
+	•	Backend: Python with Flask (for the web server and API) and Pandas (for data analysis).
+	•	Frontend: HTML, Tailwind CSS, and modern vanilla JavaScript.
+	•	Server: Can be run with Python directly or deployed with a WSGI server like Gunicorn.
+Setup and Installation
+Follow these steps to get the application running on your local machine or a personal server (like a Raspberry Pi).
+1. Prerequisites
+	•	Python 3.x
+	•	pip (Python's package installer)
+2. File Structure & Setup
+	1	Clone or Download: Get all the project files (server.py, index.html, etc.) into a single project directory.
+	2	Create Required Directories: The server requires a specific folder structure to manage the workout data workflow. In the same directory as server.py, create the following folders: /your-project-directory/
+	3	│
+	4	├── 📄 server.py
+	5	├── 📄 index.html
+	6	├── 📄 Workout.html
+	7	├── 📄 analysis.html
+	8	│
+	9	├── 📁 api/
+	10	├── 📁 planned_workouts/
+	11	├── 📁 inprogress_workouts/
+	12	├── 📁 finished_workouts/
+	13	└── 📁 archived_plans/
+	14	
+	15	
+	16	Create Your Exercise List: Inside the api/ folder, create a file named exercises.csv. This file will be your master list of all available exercises. Example api/exercises.csv: Exercise
+	17	Barbell Bench Press
+	18	Squats
+	19	Deadlifts
+	20	Lat Pulldown
+	21	
+	22	
+	23	Install Python Dependencies: The Python server relies on Flask and Pandas. Create a file named requirements.txt in the project directory with the following content: Flask
+	24	Flask-Cors
+	25	pandas
+	26	gunicorn
+	27	
+	28	 Then, open your terminal in the project directory and run: pip install -r requirements.txt
+	29	
+	30	
+3. Running the Application
+You can run the server in two ways:
+A) For Development (Simple):
+python server.py
+
+B) For Production (Recommended): Use Gunicorn for a more robust and stable server.
+gunicorn --bind 0.0.0.0:5000 server:app
+
+Once the server is running, access the application in your web browser at: http://127.0.0.1:5000/index.html
+How to Use: The Data Workflow
+	1	Plan (index.html):
+	◦	Create a new workout plan.
+	◦	When you click "Save Plan to Server", a new file is created in the planned_workouts/ folder. This is your template.
+	2	Track (Workout.html):
+	◦	Load either a New Workout Plan or an In-Progress Workout.
+	◦	As you fill in your sets, the data is auto-saved to a _tracked.csv file in the inprogress_workouts/ folder. You can safely close the page and resume later.
+	3	Complete (Workout.html):
+	◦	When you are finished, click the "Complete Workout" button.
+	◦	This triggers two actions:
+	1	The tracked data file is moved from inprogress_workouts/ to finished_workouts/.
+	2	The original template is moved from planned_workouts/ to archived_plans/.
+	4	Analyze (analysis.html):
+	◦	This page reads all the data from the finished_workouts/ folder to generate your progress charts. Select a user and an exercise to see your history.
+
+
+
+
+
+
+
+
+
+*Old Readme File Below*
 # Simple Workout Planner & Tracker
 
 This is a lightweight, self-hosted web application for creating, tracking, and analyzing workout routines. It's designed for individuals or small groups (like a couple or friends) who want a straightforward way to manage their training without relying on commercial apps.
