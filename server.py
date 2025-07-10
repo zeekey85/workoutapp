@@ -33,7 +33,6 @@ def analyze_workout_data():
         try:
             filename = os.path.basename(file_path)
             
-            # --- FIX: More robust filename parsing ---
             filename_base = filename.replace('_tracked.csv', '')
             parts = filename_base.split('_')
             if len(parts) < 3: continue
@@ -41,7 +40,6 @@ def analyze_workout_data():
             user = parts[0]
             date_str = parts[-1]
             
-            # Validate date format before processing
             try:
                 pd.to_datetime(date_str)
             except ValueError:
@@ -106,6 +104,16 @@ def list_templates():
         return jsonify({"status": "success", "templates": all_templates}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": "Could not list templates."}), 500
+
+@app.route('/api/list_finished_workouts', methods=['GET'])
+def list_finished_workouts():
+    """Lists all workouts in the finished_workouts directory."""
+    try:
+        files = [f for f in os.listdir(FINISHED_DIR) if f.endswith('.csv')]
+        files.sort(reverse=True)
+        return jsonify({"status": "success", "workouts": files}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": "Could not list finished workouts."}), 500
 
 @app.route('/api/list_workouts_for_tracker', methods=['GET'])
 def list_workouts_for_tracker():
@@ -212,4 +220,3 @@ def complete_workout():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
-
