@@ -17,38 +17,14 @@
         .timer-banner { animation: slideInUp 0.3s ease-out forwards; }
         .timer-finished { background-color: #10B981 !important; }
 
-        /* Responsive table styles */
+        /* Responsive table styles for standalone exercises */
         @media (max-width: 639px) {
-            .responsive-table thead {
-                display: none;
-            }
-            .responsive-table tbody, .responsive-table tr, .responsive-table td {
-                display: block;
-                width: 100%;
-            }
-            .responsive-table tr {
-                margin-bottom: 1rem;
-                border: 1px solid #e5e7eb;
-                border-radius: 0.5rem;
-                padding: 1rem;
-            }
-            .responsive-table td {
-                padding-left: 0;
-                padding-right: 0;
-                padding-bottom: 1rem;
-                border: none;
-            }
-            .responsive-table td:last-child {
-                padding-bottom: 0;
-            }
-            .responsive-table td[data-label]:before {
-                content: attr(data-label);
-                display: block;
-                font-weight: 600;
-                font-size: 0.875rem;
-                margin-bottom: 0.25rem;
-                color: #4b5563;
-            }
+            .responsive-table thead { display: none; }
+            .responsive-table tbody, .responsive-table tr, .responsive-table td { display: block; width: 100%; }
+            .responsive-table tr { margin-bottom: 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; }
+            .responsive-table td { padding-left: 0; padding-right: 0; padding-bottom: 1rem; border: none; }
+            .responsive-table td:last-child { padding-bottom: 0; }
+            .responsive-table td[data-label]:before { content: attr(data-label); display: block; font-weight: 600; font-size: 0.875rem; margin-bottom: 0.25rem; color: #4b5563; }
         }
     </style>
 </head>
@@ -135,6 +111,7 @@
         let sourcePlanFilename = null;
         let trackedFilename = null;
         let timerInterval = null;
+        let currentWorkoutData = [];
 
         // --- EVENT LISTENERS ---
         window.addEventListener('load', loadWorkoutListFromServer);
@@ -243,6 +220,7 @@
                 }
 
                 if (workoutData) {
+                    currentWorkoutData = workoutData;
                     displayWorkoutTracker(workoutData);
                     showStatus(`Loaded ${filename}. Ready to track!`, 'green');
                 }
@@ -301,63 +279,29 @@
         function displayWorkoutTracker(trackingData) {
             emptyState.style.display = 'none';
             trackerContainer.innerHTML = '';
-            trackingData.forEach((exercise, exerciseIndex) => {
-                const exerciseElement = document.createElement('div');
-                exerciseElement.className = `exercise-container p-4 sm:p-6 rounded-xl shadow-lg border fade-in-animation`;
-                exerciseElement.dataset.exerciseIndex = exerciseIndex;
-                exerciseElement.dataset.supersetGroup = exercise.supersetGroup || 'None';
-                
-                let bgColorClass = 'bg-white';
-                if (exercise.supersetGroup === 'A') bgColorClass = 'bg-blue-50';
-                if (exercise.supersetGroup === 'B') bgColorClass = 'bg-yellow-50';
-                exerciseElement.classList.add(bgColorClass);
-                
-                let coachNotesHTML = exercise.coachNotes ? `<blockquote class="mt-2 mb-4 p-3 border-l-4 border-purple-300 bg-purple-50 text-purple-800">${exercise.coachNotes}</blockquote>` : '';
+            
+            let i = 0;
+            while (i < trackingData.length) {
+                const currentExercise = trackingData[i];
+                const supersetGroup = currentExercise.supersetGroup;
 
-                let tableHTML = `
-                    <div class="flex justify-between items-baseline mb-4">
-                        <h3 class="text-xl sm:text-2xl font-bold">${exercise.name}</h3>
-                        <div class="text-right">
-                            <p class="text-sm text-gray-600">Target: <span class="font-semibold">${exercise.setsData.length} sets @ ${exercise.weight || 0} kg</span></p>
-                            ${exercise.supersetGroup !== 'None' ? `<p class="text-sm font-bold text-indigo-600">Superset ${exercise.supersetGroup}</p>` : ''}
-                        </div>
-                    </div>
-                    ${coachNotesHTML}
-                    <table class="w-full text-left responsive-table">
-                        <thead>
-                            <tr class="border-b">
-                                <th class="p-2 w-1/12">Set</th>
-                                <th class="p-2 w-3/12">Actual Reps</th>
-                                <th class="p-2 w-3/12">Actual Weight (kg)</th>
-                                <th class="p-2 w-4/12">Notes</th>
-                                <th class="p-2 w-1/12">RIR</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
-                
-                exercise.setsData.forEach((setData, setIndex) => {
-                    const isLastSet = setIndex === exercise.setsData.length - 1;
-                    tableHTML += `
-                        <tr data-set-index="${setIndex}" data-is-last-set="${isLastSet}">
-                            <td data-label="Set" class="p-2 font-semibold text-lg sm:text-base sm:font-normal sm:w-1/12">${setIndex + 1}</td>
-                            <td data-label="Actual Reps (Goal: ${exercise.targetReps})" class="p-2 sm:w-3/12">
-                                <input type="number" class="table-cell-input reps-input" placeholder="Reps" value="${setData.reps || ''}">
-                            </td>
-                            <td data-label="Actual Weight (kg) (Goal: ${exercise.weight || 0} kg)" class="p-2 sm:w-3/12">
-                                <input type="number" class="table-cell-input weight-input" placeholder="Weight" value="${setData.actualWeight || ''}">
-                            </td>
-                            <td data-label="Notes" class="p-2 sm:w-4/12">
-                                <input type="text" class="table-cell-input notes-input" placeholder="e.g., good form" value="${setData.notes || ''}">
-                            </td>
-                            <td data-label="Reps in Reserve (RIR)" class="p-2 sm:w-1/12">
-                                <input type="number" class="table-cell-input rir-input" placeholder="RIR" value="${setData.rir || ''}">
-                            </td>
-                        </tr>`;
-                });
-                tableHTML += `</tbody></table>`;
-                exerciseElement.innerHTML = tableHTML;
-                trackerContainer.appendChild(exerciseElement);
-            });
+                if (supersetGroup && supersetGroup !== 'None') {
+                    const supersetExercises = [currentExercise];
+                    let j = i + 1;
+                    while (j < trackingData.length && trackingData[j].supersetGroup === supersetGroup) {
+                        supersetExercises.push(trackingData[j]);
+                        j++;
+                    }
+
+                    const supersetContainer = createSupersetElement(supersetExercises, i);
+                    trackerContainer.appendChild(supersetContainer);
+                    i = j;
+                } else {
+                    const exerciseElement = createStandaloneExerciseElement(currentExercise, i);
+                    trackerContainer.appendChild(exerciseElement);
+                    i++;
+                }
+            }
 
             trackerContainer.querySelectorAll('.rir-input').forEach(input => {
                 input.addEventListener('input', handleRirChange);
@@ -369,27 +313,113 @@
             actionButtons.classList.remove('hidden');
         }
 
+        function createStandaloneExerciseElement(exercise, originalIndex) {
+            const exerciseElement = document.createElement('div');
+            exerciseElement.className = `exercise-container bg-white p-4 sm:p-6 rounded-xl shadow-lg border fade-in-animation`;
+            exerciseElement.dataset.originalExerciseIndex = originalIndex;
+            exerciseElement.dataset.supersetGroup = 'None';
+            
+            let coachNotesHTML = exercise.coachNotes ? `<blockquote class="mt-2 mb-4 p-3 border-l-4 border-purple-300 bg-purple-50 text-purple-800">${exercise.coachNotes}</blockquote>` : '';
+
+            let tableHTML = `
+                <div class="flex justify-between items-baseline mb-4">
+                    <h3 class="text-xl sm:text-2xl font-bold">${exercise.name}</h3>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-600">Target: <span class="font-semibold">${exercise.setsData.length} sets @ ${exercise.weight || 0} kg</span></p>
+                    </div>
+                </div>
+                ${coachNotesHTML}
+                <table class="w-full text-left responsive-table">
+                    <thead>
+                        <tr class="border-b">
+                            <th class="p-2 w-1/12">Set</th><th class="p-2 w-3/12">Actual Reps</th><th class="p-2 w-3/12">Actual Weight (kg)</th><th class="p-2 w-4/12">Notes</th><th class="p-2 w-1/12">RIR</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            
+            exercise.setsData.forEach((setData, setIndex) => {
+                tableHTML += `
+                    <tr data-original-exercise-index="${originalIndex}" data-set-index="${setIndex}">
+                        <td data-label="Set" class="p-2 font-semibold text-lg sm:text-base sm:font-normal sm:w-1/12">${setIndex + 1}</td>
+                        <td data-label="Actual Reps (Goal: ${exercise.targetReps})" class="p-2 sm:w-3/12"><input type="number" class="table-cell-input reps-input" placeholder="Reps" value="${setData.reps || ''}"></td>
+                        <td data-label="Actual Weight (kg) (Goal: ${exercise.weight || 0} kg)" class="p-2 sm:w-3/12"><input type="number" class="table-cell-input weight-input" placeholder="Weight" value="${setData.actualWeight || ''}"></td>
+                        <td data-label="Notes" class="p-2 sm:w-4/12"><input type="text" class="table-cell-input notes-input" placeholder="e.g., good form" value="${setData.notes || ''}"></td>
+                        <td data-label="Reps in Reserve (RIR)" class="p-2 sm:w-1/12"><input type="number" class="table-cell-input rir-input" placeholder="RIR" value="${setData.rir || ''}"></td>
+                    </tr>`;
+            });
+            tableHTML += `</tbody></table>`;
+            exerciseElement.innerHTML = tableHTML;
+            return exerciseElement;
+        }
+
+        function createSupersetElement(supersetExercises, firstOriginalIndex) {
+            const supersetGroup = supersetExercises[0].supersetGroup;
+            const maxSets = Math.max(...supersetExercises.map(ex => ex.setsData.length));
+            
+            const supersetContainer = document.createElement('div');
+            let bgColorClass = 'bg-blue-50';
+            let borderColorClass = 'border-blue-200';
+            if (supersetGroup === 'B') {
+                bgColorClass = 'bg-yellow-50';
+                borderColorClass = 'border-yellow-200';
+            }
+            supersetContainer.className = `superset-wrapper p-4 rounded-xl border-2 ${borderColorClass} ${bgColorClass} space-y-4 fade-in-animation`;
+            
+            const supersetLabel = document.createElement('h2');
+            supersetLabel.className = 'text-2xl font-bold text-gray-700 mb-2';
+            supersetLabel.textContent = `Superset ${supersetGroup}`;
+            supersetContainer.appendChild(supersetLabel);
+
+            for (let setIndex = 0; setIndex < maxSets; setIndex++) {
+                const setWrapper = document.createElement('div');
+                setWrapper.className = 'set-wrapper border-t border-gray-300 pt-4';
+                
+                const setLabel = document.createElement('h3');
+                setLabel.className = 'text-lg font-semibold text-gray-600 mb-3';
+                setLabel.textContent = `Set ${setIndex + 1}`;
+                setWrapper.appendChild(setLabel);
+
+                supersetExercises.forEach((exercise, indexInSuperset) => {
+                    if (setIndex < exercise.setsData.length) {
+                        const setData = exercise.setsData[setIndex];
+                        const originalIndex = firstOriginalIndex + indexInSuperset;
+                        
+                        const exerciseInSetWrapper = document.createElement('div');
+                        exerciseInSetWrapper.className = 'exercise-in-set bg-white p-4 rounded-lg shadow mb-4';
+                        
+                        exerciseInSetWrapper.innerHTML = `
+                            <h4 class="text-lg font-bold mb-2">${exercise.name}</h4>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4" data-original-exercise-index="${originalIndex}" data-set-index="${setIndex}">
+                                <div><label class="block text-sm font-medium text-gray-500">Reps (Goal: ${exercise.targetReps})</label><input type="number" class="table-cell-input reps-input" placeholder="Reps" value="${setData.reps || ''}"></div>
+                                <div><label class="block text-sm font-medium text-gray-500">Weight (Goal: ${exercise.weight || 0} kg)</label><input type="number" class="table-cell-input weight-input" placeholder="Weight" value="${setData.actualWeight || ''}"></div>
+                                <div><label class="block text-sm font-medium text-gray-500">Notes</label><input type="text" class="table-cell-input notes-input" placeholder="e.g., good form" value="${setData.notes || ''}"></div>
+                                <div><label class="block text-sm font-medium text-gray-500">RIR</label><input type="number" class="table-cell-input rir-input" placeholder="RIR" value="${setData.rir || ''}"></div>
+                            </div>
+                        `;
+                        setWrapper.appendChild(exerciseInSetWrapper);
+                    }
+                });
+                supersetContainer.appendChild(setWrapper);
+            }
+            return supersetContainer;
+        }
+
         function handleRirChange(event) {
             debouncedAutoSave(false);
-
             const rirInput = event.target;
             if (!rirInput.value) return;
 
-            const currentRow = rirInput.closest('tr');
-            const currentExerciseContainer = rirInput.closest('.exercise-container');
-
-            const isLastSet = currentRow.dataset.isLastSet === 'true';
-            const supersetGroup = currentExerciseContainer.dataset.supersetGroup;
+            const setWrapper = rirInput.closest('[data-set-index]');
+            const originalIndex = parseInt(setWrapper.dataset.originalExerciseIndex, 10);
+            const exercise = currentWorkoutData[originalIndex];
+            const supersetGroup = exercise.supersetGroup;
+            const isLastSet = parseInt(setWrapper.dataset.setIndex) === exercise.setsData.length - 1;
             
             let restTime = 60;
 
             if (isLastSet && supersetGroup !== 'None') {
-                const allExerciseContainers = Array.from(trackerContainer.querySelectorAll('.exercise-container'));
-                const currentIndex = parseInt(currentExerciseContainer.dataset.exerciseIndex, 10);
-                const nextExerciseContainer = allExerciseContainers[currentIndex + 1];
-                
-                const isLastInSuperset = !nextExerciseContainer || nextExerciseContainer.dataset.supersetGroup !== supersetGroup;
-
+                const nextExercise = currentWorkoutData[originalIndex + 1];
+                const isLastInSuperset = !nextExercise || nextExercise.supersetGroup !== supersetGroup;
                 if (isLastInSuperset) {
                     restTime = 90;
                 }
@@ -399,7 +429,6 @@
 
         function startTimer(duration) {
             clearInterval(timerInterval);
-            
             let timeLeft = duration;
             timerBanner.classList.remove('hidden', 'timer-finished');
             timerBanner.classList.add('bg-indigo-600');
@@ -410,9 +439,7 @@
                 const seconds = (timeLeft % 60).toString().padStart(2, '0');
                 timerDisplay.textContent = `${minutes}:${seconds}`;
             };
-
             updateDisplay();
-
             timerInterval = setInterval(() => {
                 timeLeft--;
                 updateDisplay();
@@ -433,19 +460,33 @@
         
         async function autoSaveProgress(isManual = false) {
             if (!trackedFilename) return;
-
             const trackingData = readDataFromUI();
             if (trackingData.length === 0) { 
                 if(isManual) showStatus('Nothing to save.', 'orange'); 
                 return; 
             }
             
-            let csvContent = "Exercise,Target Reps,Target Weight (kg),Superset Group,Coach's Notes,Set,Actual Reps,Actual Weight (kg),Notes,Reps in Reserve (RIR)\r\n";
+            // FIX: Corrected the CSV header to match the data being written.
+            let csvContent = "Exercise,Sets,Target Reps,Target Weight (kg),Superset Group,Coach's Notes,Set,Actual Reps,Actual Weight (kg),Notes,Reps in Reserve (RIR)\r\n";
             trackingData.forEach(exercise => {
                 const coachNotes = `"${(exercise.coachNotes || '').replace(/"/g, '""')}"`;
                 exercise.setsData.forEach((setData, index) => {
                     const userNotes = `"${(setData.notes || '').replace(/"/g, '""')}"`;
-                    csvContent += [`"${exercise.name}"`, `"${exercise.targetReps}"`, exercise.weight, exercise.supersetGroup, coachNotes, index + 1, setData.reps, setData.actualWeight, userNotes, setData.rir].join(',') + '\r\n';
+                    // FIX: Added the missing 'exercise.sets' value to match the header.
+                    const rowData = [
+                        `"${exercise.name}"`,
+                        exercise.sets,
+                        `"${exercise.targetReps}"`,
+                        exercise.weight,
+                        exercise.supersetGroup,
+                        coachNotes,
+                        index + 1,
+                        setData.reps,
+                        setData.actualWeight,
+                        userNotes,
+                        setData.rir
+                    ];
+                    csvContent += rowData.join(',') + '\r\n';
                 });
             });
 
@@ -476,18 +517,13 @@
         
         async function handleCompleteWorkout() {
             if (!confirm("Are you sure you want to complete this workout? The plan will be archived.")) return;
-
             await autoSaveProgress(true);
-
             showStatus('Completing and archiving...', 'blue');
             completeWorkoutButton.disabled = true;
             saveProgressButton.disabled = true;
 
             try {
-                const payload = {
-                    tracked_filename: trackedFilename,
-                    plan_filename: sourcePlanFilename
-                };
+                const payload = { tracked_filename: trackedFilename, plan_filename: sourcePlanFilename };
                 const response = await fetch(COMPLETE_WORKOUT_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -513,37 +549,32 @@
         }
 
         function readDataFromUI() {
-            const data = [];
-            try {
-                trackerContainer.querySelectorAll('.exercise-container').forEach((container) => {
-                    const coachNotesEl = container.querySelector('blockquote');
-                    const weightMatch = container.querySelector('p.text-sm.text-gray-600 span').textContent.match(/@ ([\d\.]+) kg/);
-                    const weight = weightMatch ? parseFloat(weightMatch[1]) : 0;
+            if (!currentWorkoutData || currentWorkoutData.length === 0) return [];
 
-                    const exerciseData = {
-                        name: container.querySelector('h3').textContent,
-                        targetReps: container.querySelector('.reps-input').closest('td').dataset.label.replace('Actual Reps (Goal: ', '').replace(')',''),
-                        weight: weight,
-                        supersetGroup: container.dataset.supersetGroup,
-                        coachNotes: coachNotesEl ? coachNotesEl.textContent : '',
-                        setsData: []
-                    };
-                    container.querySelectorAll('tbody tr').forEach(row => {
-                        exerciseData.setsData.push({
-                            reps: row.querySelector('.reps-input').value,
-                            actualWeight: row.querySelector('.weight-input').value,
-                            notes: row.querySelector('.notes-input').value,
-                            rir: row.querySelector('.rir-input').value
-                        });
-                    });
-                    data.push(exerciseData);
-                });
-            } catch (error) {
-                console.error("Error reading data from UI:", error);
-                showStatus("Error reading form data. Check console.", "red");
-                return [];
-            }
-            return data;
+            const updatedData = JSON.parse(JSON.stringify(currentWorkoutData));
+            updatedData.forEach(ex => ex.setsData = []); 
+
+            const setElements = document.querySelectorAll('[data-original-exercise-index][data-set-index]');
+            
+            setElements.forEach(setEl => {
+                const originalExerciseIndex = parseInt(setEl.dataset.originalExerciseIndex, 10);
+                const setIndex = parseInt(setEl.dataset.setIndex, 10);
+
+                const exercise = updatedData[originalExerciseIndex];
+                
+                while (exercise.setsData.length <= setIndex) {
+                    exercise.setsData.push({});
+                }
+
+                exercise.setsData[setIndex] = {
+                    reps: setEl.querySelector('.reps-input').value,
+                    actualWeight: setEl.querySelector('.weight-input').value,
+                    notes: setEl.querySelector('.notes-input').value,
+                    rir: setEl.querySelector('.rir-input').value
+                };
+            });
+
+            return updatedData;
         }
 
         function showStatus(message, color) {
