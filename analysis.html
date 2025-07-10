@@ -21,26 +21,26 @@
             <a href="Workout.html" class="text-blue-600 hover:underline ml-4">Go to Tracker</a>
         </header>
 
-        <div class="flex flex-col sm:flex-row justify-center items-center gap-4 p-4 bg-white rounded-xl shadow-md border mb-8">
-            <select id="user-selector" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
-                <option value="">-- Select a User --</option>
-                <option value="All">All Users</option>
-                <option value="Zak">Zak</option>
-                <option value="Kate">Kate</option>
-            </select>
-            <select id="exercise-selector" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto" disabled>
-                <option value="">-- Select a User First --</option>
-            </select>
-            <p id="statusMessage" class="text-sm font-medium h-5 flex-grow text-center sm:text-left"></p>
+        <div class="bg-white p-6 rounded-xl shadow-lg border mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Performance Charts</h2>
+            <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
+                <select id="user-selector" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
+                    <option value="">-- Select a User --</option>
+                    <option value="All">All Users</option>
+                    <option value="Zak">Zak</option>
+                    <option value="Kate">Kate</option>
+                </select>
+                <select id="exercise-selector" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto" disabled>
+                    <option value="">-- Select a User First --</option>
+                </select>
+            </div>
         </div>
 
         <main id="charts-container" class="space-y-8 hidden">
-            <!-- Max Weight Chart -->
             <div class="bg-white p-6 rounded-xl shadow-lg border">
                 <h2 id="max-weight-title" class="text-2xl font-semibold mb-4">Max Weight Lifted vs. Workout</h2>
                 <canvas id="max-weight-chart"></canvas>
             </div>
-            <!-- Total Volume Chart -->
             <div class="bg-white p-6 rounded-xl shadow-lg border">
                 <h2 id="total-volume-title" class="text-2xl font-semibold mb-4">Total Volume vs. Workout</h2>
                 <canvas id="total-volume-chart"></canvas>
@@ -51,61 +51,104 @@
              <p class="text-lg font-semibold">Please select a user to view their progress.</p>
         </div>
 
+        <!-- NEW: Workout Logbook Section -->
+        <div class="mt-12">
+            <div class="bg-white p-6 rounded-xl shadow-lg border">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-800">Workout Logbook</h2>
+                <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
+                    <select id="logbook-workout-selector" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-full sm:w-auto" disabled>
+                        <option value="">-- Select a User First --</option>
+                    </select>
+                    <button id="view-workout-button" class="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 w-full sm:w-auto" disabled>View Workout</button>
+                </div>
+                <div id="logbook-view-container" class="mt-6 hidden"></div>
+            </div>
+        </div>
+
     </div>
 
     <script type="module">
         // --- CONFIGURATION ---
         const ANALYSIS_URL = `/api/get_analysis`;
+        const LIST_FINISHED_URL = `/api/list_finished_workouts`;
+        const GET_WORKOUT_URL = `/api/get_workout`;
 
         // --- DOM ELEMENTS ---
         const userSelector = document.getElementById('user-selector');
         const exerciseSelector = document.getElementById('exercise-selector');
-        const statusMessage = document.getElementById('statusMessage');
         const chartsContainer = document.getElementById('charts-container');
         const emptyState = document.getElementById('empty-state');
         const maxWeightTitle = document.getElementById('max-weight-title');
         const totalVolumeTitle = document.getElementById('total-volume-title');
+        const logbookWorkoutSelector = document.getElementById('logbook-workout-selector');
+        const viewWorkoutButton = document.getElementById('view-workout-button');
+        const logbookViewContainer = document.getElementById('logbook-view-container');
         
+        // --- STATE ---
         let analysisData = {};
+        let finishedWorkouts = [];
         let weightChart = null;
         let volumeChart = null;
 
         // --- EVENT LISTENERS ---
-        window.addEventListener('load', loadAnalysisData);
+        window.addEventListener('load', initializePage);
         userSelector.addEventListener('change', handleUserSelection);
         exerciseSelector.addEventListener('change', updateCharts);
+        viewWorkoutButton.addEventListener('click', displayWorkoutLog);
+
+        async function initializePage() {
+            showStatus('Fetching analysis data...', 'blue');
+            await loadAnalysisData();
+            await loadFinishedWorkouts();
+            showStatus('Ready. Please select a user.', 'green');
+        }
 
         async function loadAnalysisData() {
-            showStatus('Fetching analysis from server...', 'blue');
             try {
                 const response = await fetch(ANALYSIS_URL);
                 if (!response.ok) throw new Error(`Server error: ${response.status}`);
                 const data = await response.json();
-
                 if (data.status === 'success' && Object.keys(data.analysis).length > 0) {
                     analysisData = data.analysis;
-                    showStatus('Analysis data loaded. Please select a user.', 'green');
                 } else {
                     emptyState.innerHTML = `<p class="text-lg font-semibold">No analysis data found.</p><p class="text-sm">Complete some workouts with the tracker app first.</p>`;
-                    showStatus('No data available for analysis.', 'orange');
                 }
             } catch (error) {
                 console.error('Failed to load analysis:', error);
                 emptyState.innerHTML = `<p class="text-lg font-semibold">Error loading data.</p><p class="text-sm">Could not connect to the server. Is it running?</p>`;
-                showStatus('Error connecting to server.', 'red');
+            }
+        }
+
+        async function loadFinishedWorkouts() {
+            try {
+                const response = await fetch(LIST_FINISHED_URL);
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                const data = await response.json();
+                if (data.status === 'success') {
+                    finishedWorkouts = data.workouts;
+                }
+            } catch (error) {
+                console.error('Failed to load finished workouts:', error);
             }
         }
 
         function handleUserSelection() {
             const selectedUser = userSelector.value;
+            logbookViewContainer.classList.add('hidden'); // Hide logbook view on user change
+            
             if (!selectedUser) {
                 exerciseSelector.innerHTML = '<option value="">-- Select a User First --</option>';
                 exerciseSelector.disabled = true;
+                logbookWorkoutSelector.innerHTML = '<option value="">-- Select a User First --</option>';
+                logbookWorkoutSelector.disabled = true;
+                viewWorkoutButton.disabled = true;
                 chartsContainer.classList.add('hidden');
                 emptyState.classList.remove('hidden');
                 return;
             }
+            
             populateExerciseSelector();
+            populateLogbookSelector();
             updateCharts();
         }
         
@@ -125,7 +168,7 @@
             }
 
             const sortedUserExercises = Array.from(userExercises);
-            exerciseSelector.innerHTML = ''; // Clear previous options
+            exerciseSelector.innerHTML = '';
             if (sortedUserExercises.length > 0) {
                 sortedUserExercises.forEach(ex => {
                     const option = document.createElement('option');
@@ -137,6 +180,27 @@
             } else {
                 exerciseSelector.innerHTML = '<option value="">-- No exercises for this user --</option>';
                 exerciseSelector.disabled = true;
+            }
+        }
+
+        function populateLogbookSelector() {
+            const selectedUser = userSelector.value;
+            const userWorkouts = finishedWorkouts.filter(w => selectedUser === 'All' || w.toLowerCase().startsWith(selectedUser.toLowerCase() + '_'));
+
+            logbookWorkoutSelector.innerHTML = '';
+            if (userWorkouts.length > 0) {
+                userWorkouts.forEach(workout => {
+                    const option = document.createElement('option');
+                    option.value = workout;
+                    option.textContent = workout;
+                    logbookWorkoutSelector.appendChild(option);
+                });
+                logbookWorkoutSelector.disabled = false;
+                viewWorkoutButton.disabled = false;
+            } else {
+                logbookWorkoutSelector.innerHTML = '<option value="">-- No workouts for this user --</option>';
+                logbookWorkoutSelector.disabled = true;
+                viewWorkoutButton.disabled = true;
             }
         }
 
@@ -168,52 +232,129 @@
                 }
             }
 
-            // Update chart titles
             maxWeightTitle.textContent = `Max Weight Lifted for ${selectedExercise}`;
             totalVolumeTitle.textContent = `Total Volume for ${selectedExercise}`;
 
-            // Create Max Weight Chart
             const weightCtx = document.getElementById('max-weight-chart').getContext('2d');
             weightChart = new Chart(weightCtx, {
-                type: 'line',
-                data: {
-                    labels: filteredData.labels.map((label, i) => `Workout ${label} (${filteredData.dates[i]})`),
-                    datasets: [{
-                        label: 'Max Weight (kg)',
-                        data: filteredData.max_weight,
-                        borderColor: 'rgb(75, 192, 192)',
-                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                        borderWidth: 2,
-                        tension: 0.1,
-                        fill: true,
-                    }]
-                },
+                type: 'line', data: { labels: filteredData.labels.map((l, i) => `W${l} (${filteredData.dates[i]})`), datasets: [{ label: 'Max Weight (kg)', data: filteredData.max_weight, borderColor: 'rgb(75, 192, 192)', backgroundColor: 'rgba(75, 192, 192, 0.2)', borderWidth: 2, tension: 0.1, fill: true }] },
                 options: { scales: { y: { beginAtZero: true, title: { display: true, text: 'Weight (kg)' } } } }
             });
 
-            // Create Total Volume Chart
             const volumeCtx = document.getElementById('total-volume-chart').getContext('2d');
             volumeChart = new Chart(volumeCtx, {
-                type: 'bar',
-                data: {
-                    labels: filteredData.labels.map((label, i) => `Workout ${label} (${filteredData.dates[i]})`),
-                    datasets: [{
-                        label: 'Total Volume (kg)',
-                        data: filteredData.total_volume,
-                        backgroundColor: 'rgba(153, 102, 255, 0.6)',
-                        borderColor: 'rgb(153, 102, 255)',
-                        borderWidth: 1
-                    }]
-                },
+                type: 'bar', data: { labels: filteredData.labels.map((l, i) => `W${l} (${filteredData.dates[i]})`), datasets: [{ label: 'Total Volume (kg)', data: filteredData.total_volume, backgroundColor: 'rgba(153, 102, 255, 0.6)', borderColor: 'rgb(153, 102, 255)', borderWidth: 1 }] },
                 options: { scales: { y: { beginAtZero: true, title: { display: true, text: 'Total Volume (Reps x Weight)' } } } }
             });
         }
 
+        async function displayWorkoutLog() {
+            const filename = logbookWorkoutSelector.value;
+            if (!filename) return;
+
+            showStatus('Loading workout log...', 'blue');
+            logbookViewContainer.innerHTML = '<p class="text-center">Loading...</p>';
+            logbookViewContainer.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${GET_WORKOUT_URL}?filename=${filename}&type=finished`);
+                if (!response.ok) throw new Error('Could not fetch workout file.');
+                const csvText = await response.text();
+                
+                const workoutData = parseTrackedCSV(csvText);
+                renderWorkoutLog(workoutData, filename);
+                showStatus('Log loaded.', 'green');
+            } catch (error) {
+                logbookViewContainer.innerHTML = `<p class="text-center text-red-500">Error: ${error.message}</p>`;
+            }
+        }
+
+        function parseTrackedCSV(csvText) {
+            const rows = csvText.trim().split('\n');
+            if (rows.length < 2) return null;
+            const header = rows.shift().toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
+            
+            const exercises = new Map();
+            rows.forEach(row => {
+                const values = row.split(',').map(v => v.trim().replace(/"/g, ''));
+                const exerciseName = values[header.indexOf('exercise')];
+                
+                if (!exercises.has(exerciseName)) {
+                    exercises.set(exerciseName, {
+                        name: exerciseName,
+                        supersetGroup: values[header.indexOf('superset group')],
+                        setsData: []
+                    });
+                }
+                
+                exercises.get(exerciseName).setsData.push({
+                    reps: values[header.indexOf('actual reps')],
+                    actualWeight: values[header.indexOf('actual weight (kg)')],
+                    notes: values[header.indexOf('notes')].replace(/""/g, '"'),
+                    rir: values[header.indexOf('reps in reserve (rir)')]
+                });
+            });
+            return Array.from(exercises.values());
+        }
+
+        function renderWorkoutLog(workoutData, filename) {
+            logbookViewContainer.innerHTML = '';
+            
+            const title = document.createElement('h3');
+            title.className = 'text-xl font-bold text-gray-700 mb-4 border-b pb-2';
+            title.textContent = `Workout Log: ${filename}`;
+            logbookViewContainer.appendChild(title);
+
+            const logContent = document.createElement('div');
+            logContent.className = 'space-y-4';
+
+            workoutData.forEach(exercise => {
+                const exDiv = document.createElement('div');
+                exDiv.className = 'p-4 bg-gray-50 rounded-lg';
+                
+                let supersetBadge = '';
+                if (exercise.supersetGroup && exercise.supersetGroup !== 'None') {
+                    supersetBadge = `<span class="ml-2 text-xs font-semibold px-2 py-1 rounded-full bg-indigo-200 text-indigo-800">${exercise.supersetGroup}</span>`;
+                }
+
+                let tableHTML = `<h4 class="font-semibold text-lg">${exercise.name}${supersetBadge}</h4>
+                                 <table class="mt-2 w-full text-sm text-left">
+                                     <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                                         <tr>
+                                             <th class="px-4 py-2">Set</th>
+                                             <th class="px-4 py-2">Reps</th>
+                                             <th class="px-4 py-2">Weight (kg)</th>
+                                             <th class="px-4 py-2">RIR</th>
+                                             <th class="px-4 py-2">Notes</th>
+                                         </tr>
+                                     </thead>
+                                     <tbody>`;
+                
+                exercise.setsData.forEach((set, index) => {
+                    tableHTML += `<tr class="border-b">
+                                      <td class="px-4 py-2 font-medium">${index + 1}</td>
+                                      <td class="px-4 py-2">${set.reps || '-'}</td>
+                                      <td class="px-4 py-2">${set.actualWeight || '-'}</td>
+                                      <td class="px-4 py-2">${set.rir || '-'}</td>
+                                      <td class="px-4 py-2">${set.notes || '-'}</td>
+                                  </tr>`;
+                });
+
+                tableHTML += `</tbody></table>`;
+                exDiv.innerHTML = tableHTML;
+                logContent.appendChild(exDiv);
+            });
+            logbookViewContainer.appendChild(logContent);
+        }
+
         function showStatus(message, color) {
-            statusMessage.textContent = message;
-            statusMessage.className = `text-sm font-medium h-5 text-${color}-600`;
-            if (color !== 'blue') {
-                setTimeout(() => { if (statusMessage.textContent === message) statusMessage.textContent = ''; }, 4000);
+            const statusEl = document.getElementById('statusMessage'); // A temporary status message element could be added
+            if (statusEl) {
+                statusEl.textContent = message;
+                statusEl.className = `text-sm font-medium h-5 text-${color}-600`;
+                if (color !== 'blue') {
+                    setTimeout(() => { if (statusEl.textContent === message) statusEl.textContent = ''; }, 4000);
+                }
             }
         }
     </script>
