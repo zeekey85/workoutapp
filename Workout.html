@@ -3,587 +3,369 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Workout Tracker</title>
+    <title>Dunamis - Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .table-cell-input { width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: #f9fafb; }
-        .table-cell-input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3); }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        .fade-in-animation { animation: fadeIn 0.5s ease-out forwards; }
-        @keyframes slideInUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .timer-banner { animation: slideInUp 0.3s ease-out forwards; }
-        .timer-finished { background-color: #10B981 !important; }
-
-        /* Responsive table styles for standalone exercises */
-        @media (max-width: 639px) {
-            .responsive-table thead { display: none; }
-            .responsive-table tbody, .responsive-table tr, .responsive-table td { display: block; width: 100%; }
-            .responsive-table tr { margin-bottom: 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; }
-            .responsive-table td { padding-left: 0; padding-right: 0; padding-bottom: 1rem; border: none; }
-            .responsive-table td:last-child { padding-bottom: 0; }
-            .responsive-table td[data-label]:before { content: attr(data-label); display: block; font-weight: 600; font-size: 0.875rem; margin-bottom: 0.25rem; color: #4b5563; }
-        }
-    </style>
+    <style> body { font-family: 'Inter', sans-serif; } </style>
 </head>
 <body class="bg-gray-100 text-gray-800 pb-24">
 
     <div class="container mx-auto p-4 md:p-8 max-w-7xl">
         <header class="text-center mb-8">
+            <img src="/assets/logo.png" alt="Logo" class="w-20 h-20 mx-auto mb-4 rounded-full">
             <h1 class="text-4xl font-bold text-gray-900">Workout Tracker</h1>
-            <p class="text-gray-600 mt-2">Load a plan and track your workout. Progress is saved automatically.</p>
-            <a href="index.html" class="text-blue-600 hover:underline">Go to Planner</a>
-            <a href="analysis.html" class="text-blue-600 hover:underline ml-4">Go to Analysis</a>
+            <p id="current-user-display" class="text-gray-600 mt-2">Loading user...</p>
+            <div class="mt-4 flex justify-center items-center gap-4 flex-wrap">
+                <a href="index.html" class="text-blue-600 hover:underline">Planner</a>
+                <a href="Workout.html" class="text-blue-600 hover:underline">Tracker</a>
+                <a href="analysis.html" class="text-blue-600 hover:underline">Analysis</a>
+                <a href="Users.html" class="text-blue-600 hover:underline">Manage Athletes</a>
+                <a href="/logout" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md">Logout</a>
+            </div>
         </header>
 
-        <div class="flex flex-col sm:flex-row justify-center items-center gap-4 p-4 bg-white rounded-xl shadow-md border mb-8">
-            <select id="user-filter-select" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
-                <option value="">-- Select User --</option>
-                <option value="Zak">Zak</option>
-                <option value="Kate">Kate</option>
-            </select>
-            <button id="filter-plans-button" class="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 w-full sm:w-auto">Load User's Workouts</button>
-            <select id="plan-selector" class="px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
-                <option value="">-- Select a User First --</option>
-            </select>
-            <button id="load-plan-button" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full sm:w-auto">
-                Load Selected Workout
-            </button>
-        </div>
-        <div class="text-center"><p id="statusMessage" class="text-sm font-medium h-5"></p></div>
-
-        <main id="workout-tracker-container" class="space-y-6 mt-6">
-            <div id="empty-state" class="text-center py-16 text-gray-500 bg-white rounded-xl shadow-lg border">
-                <p class="text-lg font-semibold">No workout loaded.</p>
-                <p class="text-sm">Select a user and workout from the dropdowns and click "Load".</p>
+        <div class="flex flex-col sm:flex-row justify-center items-end gap-4 p-4 bg-white rounded-xl shadow-md border mb-8 flex-wrap">
+            
+            <!-- Athlete Selector (for Coach View) -->
+            <div id="athlete-selector-wrapper" class="hidden">
+                <label for="coach-user-selector" class="block text-sm font-medium text-gray-700 text-center sm:text-left">Athlete</label>
+                <select id="coach-user-selector" class="mt-1 px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto"></select>
             </div>
-        </main>
+
+            <!-- Workout Selector -->
+            <div>
+                <label for="plan-selector" class="block text-sm font-medium text-gray-700 text-center sm:text-left">Workout</label>
+                <select id="plan-selector" class="mt-1 px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
+                    <option value="">-- Loading... --</option>
+                </select>
+            </div>
+
+            <!-- Load Button -->
+            <div>
+                <button id="load-plan-button" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full sm:w-auto">
+                    Load Workout
+                </button>
+            </div>
+
+        </div>
         
-        <div id="action-buttons" class="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4 hidden">
-             <button id="save-progress-button" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 w-full sm:w-auto">
-                Save Progress
-            </button>
-            <button id="complete-workout-button" class="px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 w-full sm:w-auto">
-                Complete Workout
-            </button>
+        <div id="workout-area" class="bg-white p-6 rounded-xl shadow-lg border">
+             <p id="workout-placeholder" class="text-center text-gray-500 py-12">Select a workout to begin tracking.</p>
+        </div>
+
+        <div id="action-buttons" class="fixed bottom-0 left-0 right-0 bg-white bg-opacity-95 p-4 border-t shadow-lg flex justify-center gap-4 z-50 hidden">
+             <!-- Action buttons will be added here -->
         </div>
     </div>
 
-    <!-- Timer Banner -->
-    <div id="timer-banner" class="fixed bottom-0 left-0 right-0 bg-indigo-600 text-white p-4 flex justify-between items-center shadow-2xl hidden timer-banner">
-        <div class="flex items-center">
-            <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            <span id="timer-text" class="font-semibold text-lg">Rest Timer</span>
-        </div>
-        <div id="timer-display" class="font-mono text-2xl font-bold">00:00</div>
-        <button id="dismiss-timer" class="p-2 rounded-full hover:bg-indigo-500">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-        </button>
-    </div>
+<script type="module">
+    // --- CONFIGURATION ---
+    const GET_CURRENT_USER_URL = '/api/get_current_user';
+    const GET_ATHLETES_URL = '/api/get_athletes';
+    const GET_WORKOUT_LIST_URL = '/api/list_workouts_for_tracker';
+    const GET_WORKOUT_URL = '/api/get_workout';
+    const SAVE_PROGRESS_URL = '/api/save_progress';
+    const COMPLETE_WORKOUT_URL = '/api/complete_workout';
+    const GET_EXERCISE_HISTORY_URL = '/api/get_exercise_history';
+    
+    // --- DOM ELEMENTS ---
+    const currentUserDisplay = document.getElementById('current-user-display');
+    const athleteSelectorWrapper = document.getElementById('athlete-selector-wrapper');
+    const coachUserSelector = document.getElementById('coach-user-selector');
+    const planSelector = document.getElementById('plan-selector');
+    const loadPlanButton = document.getElementById('load-plan-button');
+    const workoutArea = document.getElementById('workout-area');
+    const actionButtons = document.getElementById('action-buttons');
 
-    <script type="module">
-        // --- CONFIGURATION ---
-        const LIST_WORKOUTS_URL = `/api/list_workouts_for_tracker`;
-        const GET_WORKOUT_URL = `/api/get_workout`;
-        const SAVE_WORKOUT_URL = `/api/save_workout`;
-        const COMPLETE_WORKOUT_URL = `/api/complete_workout`;
+    // --- STATE ---
+    let currentUser = null;
+    let userRole = null;
+    let currentPlanFilename = null;
 
-        // --- DOM ELEMENTS ---
-        const userFilterSelect = document.getElementById('user-filter-select');
-        const filterPlansButton = document.getElementById('filter-plans-button');
-        const planSelector = document.getElementById('plan-selector');
-        const loadPlanButton = document.getElementById('load-plan-button');
-        const statusMessage = document.getElementById('statusMessage');
-        const trackerContainer = document.getElementById('workout-tracker-container');
-        const emptyState = document.getElementById('empty-state');
-        const actionButtons = document.getElementById('action-buttons');
-        const saveProgressButton = document.getElementById('save-progress-button');
-        const completeWorkoutButton = document.getElementById('complete-workout-button');
-        const timerBanner = document.getElementById('timer-banner');
-        const timerText = document.getElementById('timer-text');
-        const timerDisplay = document.getElementById('timer-display');
-        const dismissTimerButton = document.getElementById('dismiss-timer');
+    // --- INITIALIZATION ---
+    async function initializePage() {
+        try {
+            const response = await fetch(GET_CURRENT_USER_URL);
+            if (!response.ok) throw new Error(`Failed to fetch user data: ${response.statusText}`);
+            const data = await response.json();
+            currentUser = data.username;
+            userRole = data.role;
+            currentUserDisplay.textContent = `Logged in as: ${currentUser} (${userRole})`;
 
-        // --- STATE ---
-        let allServerWorkouts = { plans: [], tracked: [] };
-        let sourcePlanFilename = null;
-        let trackedFilename = null;
-        let timerInterval = null;
-        let currentWorkoutData = [];
-
-        // --- EVENT LISTENERS ---
-        window.addEventListener('load', loadWorkoutListFromServer);
-        filterPlansButton.addEventListener('click', filterAndDisplayWorkouts);
-        loadPlanButton.addEventListener('click', handleLoadWorkout);
-        saveProgressButton.addEventListener('click', () => autoSaveProgress(true));
-        completeWorkoutButton.addEventListener('click', handleCompleteWorkout);
-        dismissTimerButton.addEventListener('click', dismissTimer);
-
-        // --- FUNCTIONS ---
-        function debounce(func, delay) {
-            let timeout;
-            return function(...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(this, args), delay);
-            };
-        }
-        const debouncedAutoSave = debounce(autoSaveProgress, 1500);
-
-        async function loadWorkoutListFromServer() {
-            showStatus('Loading workouts from server...', 'blue');
-            try {
-                const response = await fetch(LIST_WORKOUTS_URL);
-                if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
-                const data = await response.json();
-                if (data.status === 'success') {
-                    allServerWorkouts = data;
-                    showStatus('Ready. Select a user to see their workouts.', 'green');
-                } else {
-                    showStatus('No workouts found on the server.', 'orange');
-                }
-            } catch (error) {
-                console.error('Failed to load workout list:', error);
-                showStatus('Error: Could not connect to server to load workouts.', 'red');
-            }
-        }
-        
-        function filterAndDisplayWorkouts() {
-            const userName = userFilterSelect.value;
-            if (!userName) { showStatus('Please select a user.', 'orange'); return; }
-
-            const userPlans = allServerWorkouts.plans.filter(p => p.toLowerCase().startsWith(userName.toLowerCase() + '_'));
-            const userTracked = allServerWorkouts.tracked.filter(t => t.toLowerCase().startsWith(userName.toLowerCase() + '_'));
-            
-            planSelector.innerHTML = '<option value="">-- Select a Workout --</option>';
-
-            if (userTracked.length > 0) {
-                const optgroup = document.createElement('optgroup');
-                optgroup.label = 'In-Progress Workouts';
-                userTracked.forEach(file => {
-                    const option = document.createElement('option');
-                    option.value = file;
-                    option.dataset.type = 'tracked';
-                    option.textContent = file;
-                    optgroup.appendChild(option);
-                });
-                planSelector.appendChild(optgroup);
-            }
-
-            if (userPlans.length > 0) {
-                const optgroup = document.createElement('optgroup');
-                optgroup.label = 'New Workout Plans';
-                userPlans.forEach(file => {
-                    const option = document.createElement('option');
-                    option.value = file;
-                    option.dataset.type = 'plan';
-                    option.textContent = file;
-                    optgroup.appendChild(option);
-                });
-                planSelector.appendChild(optgroup);
-            }
-
-            if (userPlans.length === 0 && userTracked.length === 0) {
-                planSelector.innerHTML = '<option value="">-- No workouts found for this user --</option>';
-                showStatus(`No workouts found for ${userName}.`, 'orange');
+            if (userRole === 'coach') {
+                await setupCoachView();
             } else {
-                showStatus(`Found ${userTracked.length} in-progress and ${userPlans.length} new plan(s) for ${userName}.`, 'green');
+                await loadWorkoutListFromServer(currentUser);
             }
+            await checkForPreload();
+        } catch (error) {
+            console.error("Initialization failed:", error);
+            currentUserDisplay.textContent = "Error: Could not load user data.";
         }
+    }
 
-        async function handleLoadWorkout() {
-            const selectedOption = planSelector.options[planSelector.selectedIndex];
-            if (!selectedOption || !selectedOption.value) {
-                showStatus('Please select a workout to load.', 'orange');
-                return;
-            }
-
-            const filename = selectedOption.value;
-            const type = selectedOption.dataset.type;
-            showStatus(`Loading ${filename}...`, 'blue');
-
-            try {
-                const response = await fetch(`${GET_WORKOUT_URL}?filename=${filename}&type=${type}`);
-                if (!response.ok) throw new Error(`Could not fetch file. Status: ${response.status}`);
-                const csvText = await response.text();
+    // --- COACH VIEW ---
+    async function setupCoachView() {
+        // Step 1: Make the athlete selector visible and set a default message for the workout list.
+        athleteSelectorWrapper.classList.remove('hidden');
+        planSelector.innerHTML = '<option value="">-- Select an Athlete First --</option>';
+        
+        try {
+            // Step 2: Fetch the list of athletes from the server.
+            const response = await fetch(GET_ATHLETES_URL);
+            if (!response.ok) throw new Error('Failed to fetch athlete list');
+            const data = await response.json();
+            
+            // Step 3: Populate the athlete dropdown if athletes are found.
+            if (data.status === 'success' && data.athletes.length > 0) {
+                coachUserSelector.innerHTML = '<option value="">-- Select an Athlete --</option>';
+                data.athletes.forEach(athlete => coachUserSelector.add(new Option(athlete, athlete)));
                 
-                let workoutData;
-                if (type === 'plan') {
-                    sourcePlanFilename = filename;
-                    trackedFilename = filename.replace('.csv', '_tracked.csv');
-                    workoutData = parsePlanCSV(csvText);
-                } else {
-                    trackedFilename = filename;
-                    sourcePlanFilename = filename.replace('_tracked.csv', '.csv'); 
-                    workoutData = parseTrackedCSV(csvText);
-                }
-
-                if (workoutData) {
-                    currentWorkoutData = workoutData;
-                    displayWorkoutTracker(workoutData);
-                    showStatus(`Loaded ${filename}. Ready to track!`, 'green');
-                }
-            } catch (error) {
-                console.error('Failed to load workout content:', error);
-                showStatus('Error loading the selected workout.', 'red');
-            }
-        }
-
-        function parsePlanCSV(csvText) {
-            const rows = csvText.trim().split('\n');
-            if (rows.length < 2) { return null; }
-            rows.shift();
-            return rows.map(row => {
-                const values = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g).map(v => v.replace(/"/g, ''));
-                const sets = parseInt(values[1], 10);
-                return { 
-                    name: values[0], sets, targetReps: values[2], weight: parseFloat(values[3]), 
-                    supersetGroup: values[4], coachNotes: values[5] || '',
-                    setsData: Array.from({ length: sets }, () => ({ reps: '', actualWeight: '', notes: '', rir: '' }))
-                };
-            });
-        }
-
-        function parseTrackedCSV(csvText) {
-            const rows = csvText.trim().split('\n');
-            if (rows.length < 2) { return null; }
-            const header = rows.shift().toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
-            
-            const exercises = new Map();
-            rows.forEach(row => {
-                const values = row.split(',').map(v => v.trim().replace(/"/g, ''));
-                const exerciseName = values[header.indexOf('exercise')];
-                
-                if (!exercises.has(exerciseName)) {
-                    exercises.set(exerciseName, {
-                        name: exerciseName,
-                        targetReps: values[header.indexOf('target reps')],
-                        weight: parseFloat(values[header.indexOf('target weight (kg)')]),
-                        supersetGroup: values[header.indexOf('superset group')],
-                        coachNotes: values[header.indexOf('coach\'s notes')].replace(/""/g, '"'),
-                        setsData: []
-                    });
-                }
-                
-                exercises.get(exerciseName).setsData.push({
-                    reps: values[header.indexOf('actual reps')],
-                    actualWeight: values[header.indexOf('actual weight (kg)')],
-                    notes: values[header.indexOf('notes')].replace(/""/g, '"'),
-                    rir: values[header.indexOf('reps in reserve (rir)')]
-                });
-            });
-            return Array.from(exercises.values());
-        }
-
-        function displayWorkoutTracker(trackingData) {
-            emptyState.style.display = 'none';
-            trackerContainer.innerHTML = '';
-            
-            let i = 0;
-            while (i < trackingData.length) {
-                const currentExercise = trackingData[i];
-                const supersetGroup = currentExercise.supersetGroup;
-
-                if (supersetGroup && supersetGroup !== 'None') {
-                    const supersetExercises = [currentExercise];
-                    let j = i + 1;
-                    while (j < trackingData.length && trackingData[j].supersetGroup === supersetGroup) {
-                        supersetExercises.push(trackingData[j]);
-                        j++;
-                    }
-
-                    const supersetContainer = createSupersetElement(supersetExercises, i);
-                    trackerContainer.appendChild(supersetContainer);
-                    i = j;
-                } else {
-                    const exerciseElement = createStandaloneExerciseElement(currentExercise, i);
-                    trackerContainer.appendChild(exerciseElement);
-                    i++;
-                }
-            }
-
-            trackerContainer.querySelectorAll('.rir-input').forEach(input => {
-                input.addEventListener('input', handleRirChange);
-            });
-            trackerContainer.querySelectorAll('.table-cell-input:not(.rir-input)').forEach(input => {
-                input.addEventListener('input', () => debouncedAutoSave(false));
-            });
-            
-            actionButtons.classList.remove('hidden');
-        }
-
-        function createStandaloneExerciseElement(exercise, originalIndex) {
-            const exerciseElement = document.createElement('div');
-            exerciseElement.className = `exercise-container bg-white p-4 sm:p-6 rounded-xl shadow-lg border fade-in-animation`;
-            exerciseElement.dataset.originalExerciseIndex = originalIndex;
-            exerciseElement.dataset.supersetGroup = 'None';
-            
-            let coachNotesHTML = exercise.coachNotes ? `<blockquote class="mt-2 mb-4 p-3 border-l-4 border-purple-300 bg-purple-50 text-purple-800">${exercise.coachNotes}</blockquote>` : '';
-
-            let tableHTML = `
-                <div class="flex justify-between items-baseline mb-4">
-                    <h3 class="text-xl sm:text-2xl font-bold">${exercise.name}</h3>
-                    <div class="text-right">
-                        <p class="text-sm text-gray-600">Target: <span class="font-semibold">${exercise.setsData.length} sets @ ${exercise.weight || 0} kg</span></p>
-                    </div>
-                </div>
-                ${coachNotesHTML}
-                <table class="w-full text-left responsive-table">
-                    <thead>
-                        <tr class="border-b">
-                            <th class="p-2 w-1/12">Set</th><th class="p-2 w-3/12">Actual Reps</th><th class="p-2 w-3/12">Actual Weight (kg)</th><th class="p-2 w-4/12">Notes</th><th class="p-2 w-1/12">RIR</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-            
-            exercise.setsData.forEach((setData, setIndex) => {
-                tableHTML += `
-                    <tr data-original-exercise-index="${originalIndex}" data-set-index="${setIndex}">
-                        <td data-label="Set" class="p-2 font-semibold text-lg sm:text-base sm:font-normal sm:w-1/12">${setIndex + 1}</td>
-                        <td data-label="Actual Reps (Goal: ${exercise.targetReps})" class="p-2 sm:w-3/12"><input type="number" class="table-cell-input reps-input" placeholder="Reps" value="${setData.reps || ''}"></td>
-                        <td data-label="Actual Weight (kg) (Goal: ${exercise.weight || 0} kg)" class="p-2 sm:w-3/12"><input type="number" class="table-cell-input weight-input" placeholder="Weight" value="${setData.actualWeight || ''}"></td>
-                        <td data-label="Notes" class="p-2 sm:w-4/12"><input type="text" class="table-cell-input notes-input" placeholder="e.g., good form" value="${setData.notes || ''}"></td>
-                        <td data-label="Reps in Reserve (RIR)" class="p-2 sm:w-1/12"><input type="number" class="table-cell-input rir-input" placeholder="RIR" value="${setData.rir || ''}"></td>
-                    </tr>`;
-            });
-            tableHTML += `</tbody></table>`;
-            exerciseElement.innerHTML = tableHTML;
-            return exerciseElement;
-        }
-
-        function createSupersetElement(supersetExercises, firstOriginalIndex) {
-            const supersetGroup = supersetExercises[0].supersetGroup;
-            const maxSets = Math.max(...supersetExercises.map(ex => ex.setsData.length));
-            
-            const supersetContainer = document.createElement('div');
-            let bgColorClass = 'bg-blue-50';
-            let borderColorClass = 'border-blue-200';
-            if (supersetGroup === 'B') {
-                bgColorClass = 'bg-yellow-50';
-                borderColorClass = 'border-yellow-200';
-            }
-            supersetContainer.className = `superset-wrapper p-4 rounded-xl border-2 ${borderColorClass} ${bgColorClass} space-y-4 fade-in-animation`;
-            
-            const supersetLabel = document.createElement('h2');
-            supersetLabel.className = 'text-2xl font-bold text-gray-700 mb-2';
-            supersetLabel.textContent = `Superset ${supersetGroup}`;
-            supersetContainer.appendChild(supersetLabel);
-
-            for (let setIndex = 0; setIndex < maxSets; setIndex++) {
-                const setWrapper = document.createElement('div');
-                setWrapper.className = 'set-wrapper border-t border-gray-300 pt-4';
-                
-                const setLabel = document.createElement('h3');
-                setLabel.className = 'text-lg font-semibold text-gray-600 mb-3';
-                setLabel.textContent = `Set ${setIndex + 1}`;
-                setWrapper.appendChild(setLabel);
-
-                supersetExercises.forEach((exercise, indexInSuperset) => {
-                    if (setIndex < exercise.setsData.length) {
-                        const setData = exercise.setsData[setIndex];
-                        const originalIndex = firstOriginalIndex + indexInSuperset;
-                        
-                        const exerciseInSetWrapper = document.createElement('div');
-                        exerciseInSetWrapper.className = 'exercise-in-set bg-white p-4 rounded-lg shadow mb-4';
-                        
-                        exerciseInSetWrapper.innerHTML = `
-                            <h4 class="text-lg font-bold mb-2">${exercise.name}</h4>
-                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4" data-original-exercise-index="${originalIndex}" data-set-index="${setIndex}">
-                                <div><label class="block text-sm font-medium text-gray-500">Reps (Goal: ${exercise.targetReps})</label><input type="number" class="table-cell-input reps-input" placeholder="Reps" value="${setData.reps || ''}"></div>
-                                <div><label class="block text-sm font-medium text-gray-500">Weight (Goal: ${exercise.weight || 0} kg)</label><input type="number" class="table-cell-input weight-input" placeholder="Weight" value="${setData.actualWeight || ''}"></div>
-                                <div><label class="block text-sm font-medium text-gray-500">Notes</label><input type="text" class="table-cell-input notes-input" placeholder="e.g., good form" value="${setData.notes || ''}"></div>
-                                <div><label class="block text-sm font-medium text-gray-500">RIR</label><input type="number" class="table-cell-input rir-input" placeholder="RIR" value="${setData.rir || ''}"></div>
-                            </div>
-                        `;
-                        setWrapper.appendChild(exerciseInSetWrapper);
+                // Step 4: Add an event listener that updates the workout list when an athlete is chosen.
+                coachUserSelector.addEventListener('change', () => {
+                    const selectedAthlete = coachUserSelector.value;
+                    if (selectedAthlete) {
+                        loadWorkoutListFromServer(selectedAthlete);
+                    } else {
+                        planSelector.innerHTML = '<option value="">-- Select an Athlete First --</option>';
                     }
                 });
-                supersetContainer.appendChild(setWrapper);
-            }
-            return supersetContainer;
-        }
-
-        function handleRirChange(event) {
-            debouncedAutoSave(false);
-            const rirInput = event.target;
-            if (!rirInput.value) return;
-
-            const setWrapper = rirInput.closest('[data-set-index]');
-            const originalIndex = parseInt(setWrapper.dataset.originalExerciseIndex, 10);
-            const exercise = currentWorkoutData[originalIndex];
-            const supersetGroup = exercise.supersetGroup;
-            const isLastSet = parseInt(setWrapper.dataset.setIndex) === exercise.setsData.length - 1;
-            
-            let restTime = 60;
-
-            if (isLastSet && supersetGroup !== 'None') {
-                const nextExercise = currentWorkoutData[originalIndex + 1];
-                const isLastInSuperset = !nextExercise || nextExercise.supersetGroup !== supersetGroup;
-                if (isLastInSuperset) {
-                    restTime = 90;
-                }
-            }
-            startTimer(restTime);
-        }
-
-        function startTimer(duration) {
-            clearInterval(timerInterval);
-            let timeLeft = duration;
-            timerBanner.classList.remove('hidden', 'timer-finished');
-            timerBanner.classList.add('bg-indigo-600');
-            timerText.textContent = "Rest Timer";
-
-            const updateDisplay = () => {
-                const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
-                const seconds = (timeLeft % 60).toString().padStart(2, '0');
-                timerDisplay.textContent = `${minutes}:${seconds}`;
-            };
-            updateDisplay();
-            timerInterval = setInterval(() => {
-                timeLeft--;
-                updateDisplay();
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    timerBanner.classList.add('timer-finished');
-                    timerText.textContent = "Time's Up!";
-                    const synth = new Tone.Synth().toDestination();
-                    synth.triggerAttackRelease("C5", "8n");
-                }
-            }, 1000);
-        }
-
-        function dismissTimer() {
-            clearInterval(timerInterval);
-            timerBanner.classList.add('hidden');
-        }
-        
-        async function autoSaveProgress(isManual = false) {
-            if (!trackedFilename) return;
-            const trackingData = readDataFromUI();
-            if (trackingData.length === 0) { 
-                if(isManual) showStatus('Nothing to save.', 'orange'); 
-                return; 
-            }
-            
-            // FIX: Corrected the CSV header to match the data being written.
-            let csvContent = "Exercise,Sets,Target Reps,Target Weight (kg),Superset Group,Coach's Notes,Set,Actual Reps,Actual Weight (kg),Notes,Reps in Reserve (RIR)\r\n";
-            trackingData.forEach(exercise => {
-                const coachNotes = `"${(exercise.coachNotes || '').replace(/"/g, '""')}"`;
-                exercise.setsData.forEach((setData, index) => {
-                    const userNotes = `"${(setData.notes || '').replace(/"/g, '""')}"`;
-                    // FIX: Added the missing 'exercise.sets' value to match the header.
-                    const rowData = [
-                        `"${exercise.name}"`,
-                        exercise.sets,
-                        `"${exercise.targetReps}"`,
-                        exercise.weight,
-                        exercise.supersetGroup,
-                        coachNotes,
-                        index + 1,
-                        setData.reps,
-                        setData.actualWeight,
-                        userNotes,
-                        setData.rir
-                    ];
-                    csvContent += rowData.join(',') + '\r\n';
-                });
-            });
-
-            const payload = { filename: trackedFilename, csv_content: csvContent, type: 'tracked' };
-            
-            if (isManual) {
-                showStatus('Saving...', 'blue');
-                saveProgressButton.disabled = true;
             } else {
-                 showStatus('Auto-saving...', 'blue');
+                 coachUserSelector.innerHTML = '<option value="">-- No Athletes Found --</option>';
             }
+        } catch(e) {
+            console.error(e);
+            coachUserSelector.innerHTML = '<option value="">-- Error Loading Athletes --</option>';
+        }
+    }
 
-            try {
-                const response = await fetch(SAVE_WORKOUT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
-                const result = await response.json();
-                const message = response.ok ? (isManual ? `Progress saved!` : `Auto-saved.`) : `Error: ${result.message}`;
-                showStatus(message, response.ok ? 'green' : 'red');
-            } catch (error) {
-                showStatus('Error: Could not connect to server.', 'red');
-            } finally {
-                if (isManual) saveProgressButton.disabled = false;
+    // --- DATA LOADING ---
+    async function loadWorkoutListFromServer(user) {
+        planSelector.innerHTML = '<option value="">-- Loading Workouts... --</option>';
+        try {
+            const response = await fetch(`${GET_WORKOUT_LIST_URL}?user=${user}`);
+            if (!response.ok) throw new Error('Failed to fetch workouts');
+            const data = await response.json();
+            planSelector.innerHTML = '';
+
+            if (data.tracked?.length > 0 || data.plans?.length > 0) {
+                planSelector.add(new Option('-- Select a Workout to Start or Resume --', ''));
+                if (data.tracked.length > 0) {
+                    const group = document.createElement('optgroup');
+                    group.label = 'In Progress';
+                    data.tracked.forEach(plan => group.appendChild(new Option(plan.replace('_tracked.csv','').replace(/_/g, ' ') + ' (Resume)', `tracked:${plan}`)));
+                    planSelector.add(group);
+                }
+                if (data.plans.length > 0) {
+                    const group = document.createElement('optgroup');
+                    group.label = 'New Workouts';
+                    data.plans.forEach(plan => group.appendChild(new Option(plan.replace('.csv','').replace(/_/g, ' '), `plan:${plan}`)));
+                    planSelector.add(group);
+                }
+            } else {
+                planSelector.innerHTML = '<option value="">-- No Workouts Found --</option>';
             }
+        } catch (error) {
+            console.error('Error loading workout list:', error);
+            planSelector.innerHTML = '<option value="">-- Error Loading --</option>';
+        }
+    }
+
+    async function checkForPreload() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const planToLoad = urlParams.get('plan');
+        if (planToLoad) {
+            const athleteName = planToLoad.split('_')[0];
+            if(userRole === 'coach'){
+                coachUserSelector.value = athleteName;
+                await loadWorkoutListFromServer(athleteName);
+            } else {
+                await loadWorkoutListFromServer(currentUser);
+            }
+            planSelector.value = `plan:${planToLoad}`;
+            if(planSelector.value === `plan:${planToLoad}`){
+                 loadWorkout('plan', planToLoad);
+            }
+        }
+    }
+    
+    // --- WORKOUT LOGIC ---
+    async function loadWorkout(type, filename) {
+        if (!type || !filename) {
+            workoutArea.innerHTML = '<p class="text-center text-gray-500 py-12">Select a workout to begin tracking.</p>';
+            actionButtons.classList.add('hidden');
+            return;
         }
         
-        async function handleCompleteWorkout() {
-            if (!confirm("Are you sure you want to complete this workout? The plan will be archived.")) return;
-            await autoSaveProgress(true);
-            showStatus('Completing and archiving...', 'blue');
-            completeWorkoutButton.disabled = true;
-            saveProgressButton.disabled = true;
-
-            try {
-                const payload = { tracked_filename: trackedFilename, plan_filename: sourcePlanFilename };
-                const response = await fetch(COMPLETE_WORKOUT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    showStatus('Workout complete and plan archived!', 'green');
-                    trackerContainer.innerHTML = `<div class="text-center py-16 text-green-600 bg-white rounded-xl shadow-lg border"><p class="text-2xl font-bold">Workout Complete!</p></div>`;
-                    actionButtons.classList.add('hidden');
-                    dismissTimer();
-                    loadWorkoutListFromServer();
-                } else {
-                    showStatus(`Completion Error: ${result.message}`, 'red');
-                    completeWorkoutButton.disabled = false;
-                    saveProgressButton.disabled = false;
-                }
-            } catch (error) {
-                showStatus('Error: Could not connect to server to complete workout.', 'red');
-                completeWorkoutButton.disabled = false;
-                saveProgressButton.disabled = false;
-            }
+        workoutArea.innerHTML = `<p class="text-center text-gray-500 py-12">Loading workout: ${filename.replace('.csv','').replace(/_/g, ' ')}...</p>`;
+        currentPlanFilename = filename.replace('_tracked.csv', '.csv');
+        
+        try {
+            const response = await fetch(`${GET_WORKOUT_URL}?type=${type}&filename=${filename}`);
+            if(!response.ok) throw new Error("Could not load workout file.");
+            const csvText = await response.text();
+            const athleteName = userRole === 'coach' ? coachUserSelector.value : currentUser;
+            await renderWorkout(csvText, athleteName, filename);
+        } catch(e) {
+            console.error(e);
+            workoutArea.innerHTML = `<p class="text-red-500 text-center">${e.message}</p>`;
         }
+    }
 
-        function readDataFromUI() {
-            if (!currentWorkoutData || currentWorkoutData.length === 0) return [];
+    function parseCSV(text) {
+        const lines = text.trim().split('\n');
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        return lines.slice(1).map(line => {
+            const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+            return headers.reduce((obj, header, i) => {
+                obj[header] = values[i] || '';
+                return obj;
+            }, {});
+        });
+    }
 
-            const updatedData = JSON.parse(JSON.stringify(currentWorkoutData));
-            updatedData.forEach(ex => ex.setsData = []); 
+    async function renderWorkout(csvText, athleteName, filename) {
+        const rows = parseCSV(csvText);
+        let html = `<h2 class="text-2xl font-bold text-center mb-6">${filename.replace(/_tracked\.csv|\.csv/g,'').replace(/_/g, ' ')}</h2>`;
+        
+        let currentSupersetGroup = null;
+        let currentExercise = null;
+        let firstAthleteNote = rows.length > 0 ? rows[0]['Athlete Notes'] || '' : '';
 
-            const setElements = document.querySelectorAll('[data-original-exercise-index][data-set-index]');
+        for (const row of rows) {
+            const supersetGroup = (row['Superset Group'] && row['Superset Group'].toLowerCase() !== 'none' && row['Superset Group'] !== '') ? row['Superset Group'] : null;
             
-            setElements.forEach(setEl => {
-                const originalExerciseIndex = parseInt(setEl.dataset.originalExerciseIndex, 10);
-                const setIndex = parseInt(setEl.dataset.setIndex, 10);
-
-                const exercise = updatedData[originalExerciseIndex];
-                
-                while (exercise.setsData.length <= setIndex) {
-                    exercise.setsData.push({});
-                }
-
-                exercise.setsData[setIndex] = {
-                    reps: setEl.querySelector('.reps-input').value,
-                    actualWeight: setEl.querySelector('.weight-input').value,
-                    notes: setEl.querySelector('.notes-input').value,
-                    rir: setEl.querySelector('.rir-input').value
-                };
-            });
-
-            return updatedData;
-        }
-
-        function showStatus(message, color) {
-            statusMessage.textContent = message;
-            statusMessage.className = `text-sm font-medium h-5 text-${color}-600`;
-            if (color === 'green' || color === 'red' || color === 'orange') {
-                setTimeout(() => { if (statusMessage.textContent === message) statusMessage.textContent = ''; }, 4000);
+            if (currentExercise && row.Exercise !== currentExercise) {
+                html += `<div class="mt-4"><label class="block text-sm font-medium text-gray-700">Athlete Notes:</label><textarea class="athlete-notes-input w-full p-2 border rounded-md" rows="2" placeholder="How did this exercise feel?">${firstAthleteNote}</textarea></div></div></div>`;
             }
+            if (currentSupersetGroup && supersetGroup !== currentSupersetGroup) {
+                html += `</div>`;
+            }
+
+            if (supersetGroup && supersetGroup !== currentSupersetGroup) {
+                html += `<div class="p-4 rounded-lg bg-indigo-50 border border-indigo-200 mb-6">
+                         <h4 class="text-lg font-bold text-indigo-700 mb-4">Superset ${supersetGroup}</h4>`;
+            }
+            
+            if (row.Exercise !== currentExercise) {
+                firstAthleteNote = row['Athlete Notes'] || '';
+                const historyHtml = await getExerciseHistoryHtml(athleteName, row.Exercise);
+                html += `<div class="mb-4 exercise-block" data-exercise-name="${row.Exercise}">
+                            <h3 class="text-xl font-semibold mb-1 border-b pb-2">${row.Exercise}</h3>
+                            ${historyHtml}
+                            <div class="space-y-3">`;
+            }
+            
+            html += createSetHtml(row);
+            
+            currentExercise = row.Exercise;
+            currentSupersetGroup = supersetGroup;
         }
-    </script>
+
+        if (currentExercise) html += `<div class="mt-4"><label class="block text-sm font-medium text-gray-700">Athlete Notes:</label><textarea class="athlete-notes-input w-full p-2 border rounded-md" rows="2" placeholder="How did this exercise feel?">${firstAthleteNote}</textarea></div></div></div>`;
+        if (currentSupersetGroup) html += `</div>`;
+        
+        workoutArea.innerHTML = html;
+        actionButtons.innerHTML = `<button id="save-progress-button" class="px-6 py-3 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600">Save Progress</button><button id="complete-button" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700">Complete Workout</button>`;
+        actionButtons.classList.remove('hidden');
+        document.getElementById('save-progress-button').addEventListener('click', () => saveOrComplete('inprogress'));
+        document.getElementById('complete-button').addEventListener('click', () => saveOrComplete('finished'));
+    }
+
+    function createSetHtml(row) {
+        const actualReps = row['Actual Reps'] || row['Target Reps'];
+        const actualWeight = row['Actual Weight (lb)'] || row['Target Weight (lb)'];
+        const coachNotes = row["Coach's Notes"] || '';
+        const rir = row['RIR'] || '';
+
+        return `<div class="grid grid-cols-12 gap-x-3 gap-y-2 items-center p-2 rounded-lg bg-gray-50 set-row" 
+                     data-set="${row.Set}" 
+                     data-target-reps="${row['Target Reps']}" 
+                     data-target-weight-lb="${row['Target Weight (lb)']}" 
+                     data-notes="${coachNotes}"
+                     data-superset-group="${row['Superset Group']}">
+            <div class="col-span-12 sm:col-span-1 text-sm font-semibold text-gray-600">Set ${row.Set}</div>
+            <div class="col-span-6 sm:col-span-2"><label class="block text-xs font-medium text-gray-500">Actual Reps</label><input type="text" value="${actualReps}" class="actual-reps w-full p-2 border rounded-md" placeholder="Reps"></div>
+            <div class="col-span-6 sm:col-span-2"><label class="block text-xs font-medium text-gray-500">Actual Weight</label><input type="number" value="${actualWeight}" class="actual-weight w-full p-2 border rounded-md" placeholder="Weight"></div>
+            <div class="col-span-6 sm:col-span-2"><label class="block text-xs font-medium text-gray-500">RIR</label><input type="number" value="${rir}" class="rir-input w-full p-2 border rounded-md" placeholder="RIR"></div>
+            <div class="col-span-6 sm:col-span-5"><label class="block text-xs font-medium text-gray-500">Coach's Notes</label><input type="text" value="${coachNotes}" class="coach-notes w-full p-2 border rounded-md" placeholder="Notes" disabled></div>
+        </div>`;
+    }
+
+    async function getExerciseHistoryHtml(athleteName, exName) {
+        try {
+            const historyRes = await fetch(`${GET_EXERCISE_HISTORY_URL}?user=${athleteName}&exercise=${encodeURIComponent(exName)}`);
+            if (!historyRes.ok) throw new Error('History fetch failed');
+            const historyData = await historyRes.json();
+            if (historyData.status === 'success' && historyData.history) {
+                const { date, sets } = historyData.history;
+                const setsStrings = sets.map(s => `${s['Actual Reps']}x${s['Actual Weight (lb)']}lb`);
+                return `<p class="text-xs text-gray-500 mb-2"><strong>Last time on ${new Date(date + 'T00:00:00').toLocaleDateString()}:</strong> ${setsStrings.join(', ')}</p>`;
+            }
+        } catch (e) {
+            console.error(`Failed to fetch history for ${exName}`, e);
+            return '<p class="text-xs text-red-500 mb-2">Error loading history.</p>';
+        }
+        return '<p class="text-xs text-gray-500 mb-2 italic">No prior history found.</p>';
+    }
+    
+    function getTrackedDataAsCSV() {
+        const headers = "Exercise,Set,Target Reps,Target Weight (lb),Superset Group,Coach's Notes,Actual Reps,Actual Weight (lb),RIR,Athlete Notes\n";
+        let csvRows = [];
+        const exercises = workoutArea.querySelectorAll('.exercise-block');
+        if (exercises.length === 0) return null;
+        
+        exercises.forEach(exBlock => {
+            const exName = exBlock.dataset.exerciseName;
+            const athleteNotes = exBlock.querySelector('.athlete-notes-input').value.replace(/,/g, ';');
+            exBlock.querySelectorAll('.set-row').forEach(setRow => {
+                const { set, targetReps, targetWeightLb, notes, supersetGroup } = setRow.dataset;
+                const actualReps = setRow.querySelector('.actual-reps').value;
+                const actualWeight = setRow.querySelector('.actual-weight').value;
+                const rir = setRow.querySelector('.rir-input').value;
+                csvRows.push(`"${exName}","${set}","${targetReps}","${targetWeightLb}","${supersetGroup}","${(notes || '').replace(/,/g, ';')}","${actualReps}","${actualWeight}","${rir}","${athleteNotes}"`);
+            });
+        });
+        return headers + csvRows.join('\n');
+    }
+
+    async function saveOrComplete(type) {
+        const csv_content = getTrackedDataAsCSV();
+        if (!csv_content) { return alert('Cannot save an empty workout.'); }
+        const tracked_filename = currentPlanFilename.replace('.csv', '_tracked.csv');
+        let url, body, successMessage;
+        if (type === 'finished') {
+            url = COMPLETE_WORKOUT_URL;
+            body = { plan_filename: currentPlanFilename, tracked_filename, csv_content };
+            successMessage = 'Workout Completed!';
+        } else {
+            url = SAVE_PROGRESS_URL;
+            body = { filename: tracked_filename, csv_content };
+            successMessage = 'Progress Saved!';
+        }
+        try {
+            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message);
+            alert(successMessage);
+            if(type === 'finished') window.location.href = 'index.html';
+        } catch(e) {
+            alert(`Error: ${e.message}`);
+        }
+    }
+
+    // --- EVENT LISTENERS ---
+    loadPlanButton.addEventListener('click', () => {
+        const selected = planSelector.value;
+        if(selected){
+            const [type, filename] = selected.split(':', 2);
+            loadWorkout(type, filename);
+        }
+    });
+
+    // --- INITIALIZATION CALL ---
+    initializePage();
+</script>
 </body>
 </html>
+
